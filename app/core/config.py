@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     GITHUB_TOKEN: str
     DATABASE_URL: str
     VOYAGE_API_KEY: str
+    CHROMA_PATH:    str = "./chroma_data"
 
     class Config:
         env_file = ".env"
