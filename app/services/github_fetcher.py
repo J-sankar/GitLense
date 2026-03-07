@@ -1,8 +1,6 @@
-import os 
-from github import Github
-from dotenv import load_dotenv
 
-load_dotenv()
+from github import Github
+from core.config import settings
 
 SUPPORTED_EXTENSIONS =  {
     ".py": "py",
@@ -18,7 +16,7 @@ def get_language(file_name:str) ->str:
 
 def fetch_repo_files(repo_url: str) -> any:
     repo_name = "/".join(repo_url.split("/")[-2:])
-    g = Github(os.getenv("GITHUB_TOKEN"))
+    g = Github(settings.GITHUB_TOKEN)
     repo = g.get_repo(repo_name)
 
     print("Fetching files from repo: ", repo.full_name)
