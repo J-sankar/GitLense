@@ -11,3 +11,11 @@ wheels/
 
 .env
 .python-version
+
+uv.lock
+
+# chromadb local data
+chroma_data/
+
+# test files
+test_*.py
