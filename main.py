@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from app.models.db import User, Repo, Job, Query
 from contextlib  import asynccontextmanager
 from app.core.database import engine, Base, get_db
+from app.api.routes.ingest import router as ingest_router
 
 
 
@@ -16,6 +17,8 @@ async def lifespan(app: FastAPI):
     print("Shutting down application...")
 
 app = FastAPI(title="GitLense API", lifespan=lifespan)
+
+app.include_router(ingest_router)
 
 @app.get("/health")
 def health():

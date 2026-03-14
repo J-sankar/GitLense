@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     CHROMA_PATH:    str = "./chroma_data"
     ENVIRONMENT: str = "development"
     EMBEDDING_PROVIDER: str   # or "gemini"
+    REDIS_URL: str
+    LLM_PROVIDER: str="groq"
+    GROQ_MODEL: str="llama-3.3-70b-versatile"
+    GROQ_API_KEY: str
     class Config:
         env_file = ".env"
 
