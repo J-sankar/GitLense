@@ -50,9 +50,9 @@ def build_embed_text(chunk: dict) -> str:
 
 def embed_chunks(chunks: list[dict]) -> list[dict]:
     embedded_chunks = []
-    batch_size = 128
+    batch_size = 10
     batch_count = 1
-    batch_length = batch_size // len(chunks) + 1 
+    batch_length = batch_size // len(chunks) 
 
     for i in range(0, len(chunks), batch_size):
         logger.info(f"Embedding started for batch: {batch_count} / {batch_length} ")

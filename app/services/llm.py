@@ -1,6 +1,7 @@
 from groq import Groq
 from app.core.config import settings
 from app.core.logger import get_logger
+import json
 
 logger = get_logger(__name__)
 
@@ -19,7 +20,7 @@ Code:
 {chunk['code']}
 """
     prompt = f"""You are an expert code assistant. Answer the user's question based ONLY on the code context provided below.
-If the answer is not in the context, say "I couldn't find relevant code for this question. If answer is found give the source as well"
+If the answer is not in the context, say "I couldn't find relevant code for this question. If answer is found give the source as well."
 
 ── Code Context ─────────────────────────
 {context}
@@ -27,16 +28,23 @@ If the answer is not in the context, say "I couldn't find relevant code for this
 ── Question ─────────────────────────────
 {question}
 
-── Answer ───────────────────────────────
-
-The required output format is a json :
-  answer: text,
-  source: json 
+Respond in this EXACT JSON format, nothing else:
+{{
+    "answer": "your detailed answer here",
+    "sources":[{{
+        "file": "exact file path from context","
+        name": "function or class name",
+        "type": "node type","
+        start_line": line number,
+        "end_line": line number
+        }}]
+}}
 
 source contains: 
 found place: Name (from context)
 file:  File (from context) 
-lines: start_line--end_line (from context) 
+start_line: start_line (from context)
+end_line: end_line (from context) 
 
 Even if multiple lines, and multiple files, list them in the correct order as (found place, file,lines) as a single object for each found places
 """
@@ -66,6 +74,23 @@ def ask_llm(question: str, chunks: list[dict]) -> str:
         max_tokens=1024,
     )
 
-    answer = response.choices[0].message.content
+    raw = response.choices[0].message.content
     logger.info(f"Groq response received")
-    return answer
+    try:
+        # strip markdown code blocks if LLM adds them
+        clean = raw.strip()
+        if clean.startswith("```"):
+            clean = clean.split("```")[1]
+            if clean.startswith("json"):
+                clean = clean[4:]
+        result = json.loads(clean)
+        return result
+
+    except json.JSONDecodeError:
+        logger.error(f"LLM returned invalid JSON: {raw}")
+        # ── fallback: return raw text if JSON parsing fails
+        return {
+            "answer":  raw,
+            "sources": []
+        }
+

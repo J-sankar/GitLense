@@ -38,6 +38,8 @@ class Repo(Base):
     jobs       = relationship("Job",      back_populates="repo", cascade="all, delete")
     queries    = relationship("Query",    back_populates="repo", cascade="all, delete")
 
+    
+
 
 class UserRepo(Base):
     __tablename__ = "user_repos"

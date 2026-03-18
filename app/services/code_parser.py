@@ -26,13 +26,45 @@ LANGUAGE_CONFIG = {
     },
     "js": {
         "parser":     Parser(_JS_LANGUAGE),
-        "node_types": ["function_declaration", "class_declaration", "arrow_function", "method_definition","jsx_element",              # ✅ React JSX
-            "jsx_self_closing_element"]
+        "node_types": [ "function_declaration",        # function foo() {}
+        "function_expression",         # const foo = function() {}
+        "arrow_function",              # const foo = () => {}
+        "generator_function_declaration", # function* foo() {}
+
+        # ── Classes ───────────────────────────────────
+        "class_declaration",           # class Foo {}
+        "method_definition",           # foo() {} inside class
+
+        # ── React/JSX ─────────────────────────────────
+        "jsx_element",                 # <div>...</div>
+        "jsx_self_closing_element",    # <Component />
+
+        # ── Imports ───────────────────────────────────
+        "import_statement",            # import x from 'y'
+
+        # ── Exports ───────────────────────────────────
+        "export_statement",       ]
     },
     "ts": {
         "parser":     Parser(_TS_LANGUAGE),
-        "node_types": ["function_declaration", "class_declaration", "arrow_function", "method_definition""jsx_element",              # ✅ React JSX
-            "jsx_self_closing_element"]
+        "node_types": [ "function_declaration",        # function foo() {}
+        "function_expression",         # const foo = function() {}
+        "arrow_function",              # const foo = () => {}
+        "generator_function_declaration", # function* foo() {}
+
+        # ── Classes ───────────────────────────────────
+        "class_declaration",           # class Foo {}
+        "method_definition",           # foo() {} inside class
+
+        # ── React/JSX ─────────────────────────────────
+        "jsx_element",                 # <div>...</div>
+        "jsx_self_closing_element",    # <Component />
+
+        # ── Imports ───────────────────────────────────
+        "import_statement",            # import x from 'y'
+
+        # ── Exports ───────────────────────────────────
+        "export_statement",       ]
     },
     "java": {
         "parser":     Parser(_JAVA_LANGUAGE),
@@ -68,6 +100,7 @@ def extract_name(node, contents:str)->str:
             for child in node.parent.children:
                 if child.type == "identifier":
                     return contents[child.start_byte:child.end_byte]
+    
 
     return "anonymous"
 
