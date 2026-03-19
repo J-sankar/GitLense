@@ -1,4 +1,4 @@
-import chromadb
+
 import math
 
 from qdrant_client import QdrantClient
@@ -10,7 +10,6 @@ from app.utils.compression import compress_code ,decompress_code
 
 logger = get_logger(__name__)
 
-chroma_client = chromadb.PersistentClient(path=settings.CHROMA_PATH)
 
 
 client = QdrantClient(
@@ -20,11 +19,8 @@ client = QdrantClient(
 
 print(client.get_collections())
 
-def get_collection(repo_id: str):
-    return chroma_client.get_or_create_collection(
-        name = f"repo_{repo_id}",
-        metadata={"hnsw:space": "cosine"}
-    )
+
+
 def get_or_create_collection(repo_id:str,vector_size: int):
     collection_name = f"repo_{repo_id}"
     try:
