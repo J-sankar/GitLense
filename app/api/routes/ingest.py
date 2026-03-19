@@ -7,8 +7,11 @@ from app.models.db import Repo, Job, UserRepo
 from app.schemas.ingest import IngestResponse, IngestRequest
 from app.services.github_fetcher import parse_repo_name
 from app.tasks.ingest_task import run_ingestion
-# from app.tasks.ingest_task import run_ingestion
+from app.utils.validators import validate_repo_url
+from sse_starlette import EventSourceResponse
 import uuid
+import asyncio
+import json
 
 logger = get_logger(__name__)
 
@@ -23,10 +26,13 @@ def ingest_repo(
     payload: IngestRequest,
     db: Session = Depends(get_db),
 ):
+    
     if not ingest_queue:
         logger.warning("Ingestion queue unavailable")
         raise HTTPException(503, "Queue service unavailable")
 
+    if not validate_repo_url(payload.repo_url):
+        raise HTTPException(400, "Invalid GitHub URL")
     repo = db.query(Repo).filter(Repo.repo_url == payload.repo_url).first()
 
     if repo:
@@ -99,3 +105,62 @@ def ingest_repo(
         status="queued",
         message="Ingestion started"
     )
+
+
+@router.get(path='/stream/{job_id}')
+async def stream_job_status(
+    job_id:str,
+    db:Session = Depends(get_db)
+):
+    async def event_generator():
+        while True:
+            try:
+                job = db.query(Job).filter(Job.id == uuid.UUID(job_id)).first()
+
+                if not job:
+                    logger.error(f"ERROR: Job id {job_id} not found")
+                    yield {
+                        "event": "error",
+                        "data": json.dumps({"ERROR":"Job Not Found"})
+                    }
+
+                repo = db.query(Repo).filter(Repo.id == job.repo_id).first()
+
+                payload = {
+                    "job_id":str(job.id),
+                    "status":job.status,
+                    "progress":job.progress,
+                    "error":job.error_message,
+                    "repo_status": repo.status  if repo else None
+                }
+
+                logger.info(
+                    f"SSE [{job_id[:8]}...] "
+                    f"status={job.status} "
+                    f"progress={job.progress}%"
+                )
+
+                yield {
+                    "event": "update",
+                    "data":  json.dumps(payload)
+                }
+
+                if job.status in ('finished','failed'):
+                    yield {
+                        "event": "done",
+                        "data":  json.dumps(payload)
+                    }
+                    break
+
+                db.expire_all()
+
+                await asyncio.sleep(2)
+
+            except Exception as e:
+                logger.error(f"ERROR: {str(e)}")
+                yield {
+                    "event": "error",
+                    "data":  json.dumps({"error": str(e)})
+                }
+                break
+    return EventSourceResponse(event_generator())

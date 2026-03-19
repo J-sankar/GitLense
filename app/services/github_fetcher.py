@@ -1,25 +1,15 @@
 from app.core.logger import get_logger
 from github import Github
 from app.core.config import settings
+from app.utils.github import parse_repo_name,get_language
 
 import os
 
 logger = get_logger(__name__)
 
-SUPPORTED_EXTENSIONS =  {
-    ".py": "py",
-    ".js": "js",
-    ".java": "java",
-    ".ts": "ts",
-}
 
 
-def get_language(file_name:str) ->str:
-    ext = os.path.splitext(file_name)[1]
-    return SUPPORTED_EXTENSIONS.get(ext)
 
-def parse_repo_name(repo_url: str) -> str:
-    return "/".join(repo_url.rstrip("/").split("/")[-2:])
 
 def fetch_repo_files(repo_url: str) -> list[dict]:
     repo_name = parse_repo_name(repo_url)

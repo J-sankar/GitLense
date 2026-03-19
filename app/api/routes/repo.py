@@ -25,6 +25,10 @@ def get_repos(
         logger.info(f"Fetched repos count: {len(repos)}")
         if len(user_repos) == 0:
             raise HTTPException(status_code=200, detail='No repo found')
+        for repo in repos:
+            if repo.status == "completed":
+                repo.error_message == None
+                db.commit()
         return [RepoResponse(id=str(repo.id), name=repo.name, url=repo.repo_url,status=repo.status,chunks_indexed=repo.chunks_indexed,created_at=repo.created_at,error=repo.error_message) for repo in repos]
     except Exception as e:
         logger.error(f"Error: {str(e)}")
