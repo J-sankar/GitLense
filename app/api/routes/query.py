@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.schemas.query import QueryRequest,QueryResponse,SourceChunk
 from app.core.database import get_db
 from app.core.logger import get_logger
+from app.core.security import get_current_user
 from app.models.db import Query, UserRepo, Repo,User
 from app.services.llm import ask_llm
 from app.services.query_service import answer_question
@@ -14,17 +15,17 @@ logger = get_logger(__name__)
 
 router = APIRouter(prefix="/query",tags=["query"])
 
-TEST_USER_ID = uuid.UUID("a1b2c3d4-e5f6-7890-abcd-ef1234567890")
 
 @router.post("/", response_model=QueryResponse)
 def queryLLM(
     payload: QueryRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user : User = Depends(get_current_user)
 ):
     try:
        answer =  answer_question(repo_id=payload.repo_id, query=payload.query)
        logger.debug(answer)
-       new_query =  Query(user_id=TEST_USER_ID,repo_id=payload.repo_id,question=payload.query)
+       new_query =  Query(user_id=current_user.id,repo_id=payload.repo_id,question=payload.query)
 
 
        new_query.answer = answer["answer"]
