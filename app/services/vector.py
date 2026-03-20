@@ -1,7 +1,6 @@
 
 import math
-
-from qdrant_client import QdrantClient
+from app.core.qdrant import qdrant_client as client
 from qdrant_client.models import Distance, PointStruct, VectorParams
 import uuid 
 from app.core.config import settings
@@ -9,15 +8,6 @@ from app.core.logger import get_logger
 from app.utils.compression import compress_code ,decompress_code
 
 logger = get_logger(__name__)
-
-
-
-client = QdrantClient(
-    url=settings.QDRANT_URL, 
-    api_key=settings.QDRANT_API_KEY,
-)
-
-print(client.get_collections())
 
 
 

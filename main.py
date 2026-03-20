@@ -2,10 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.models.db import User, Repo, Job, Query
 from contextlib  import asynccontextmanager
-from app.core.database import engine, Base, get_db
+from app.core.database import engine, Base
 from app.api.routes.ingest import router as ingest_router
 from app.api.routes.query import router as query_router
 from app.api.routes.repo import router as repo_router
+from app.api.routes.auth import router as auth_router
 
 
 
@@ -36,6 +37,7 @@ app.add_middleware(
 app.include_router(ingest_router)
 app.include_router(query_router)
 app.include_router(repo_router)
+app.include_router(auth_router)
 
 @app.get("/health")
 def health():

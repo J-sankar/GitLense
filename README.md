@@ -37,7 +37,7 @@ A FastAPI-powered application for analyzing and querying codebases with AI-drive
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd codebase-qa
+cd GitLense
 ```
 
 2. Install dependencies using uv:

@@ -7,9 +7,9 @@ from app.core.database import SessionLocal
 from app.core.logger import get_logger
 from app.services.github_fetcher import fetch_repo_files
 from app.services.code_parser import parse_files
-from app.services.embedder import embed_chunks, embed_batch
+from app.services.embedder import  embed_batch
 from app.services.vector import store_embeddings_batch
-from app.services.ingest_cache import (get_resume_state,get_stored_chunk_count,save_batch_index,save_file_paths,save_step, clear_cache)
+from app.services.ingest_cache import (save_job_id,get_resume_state,get_stored_chunk_count,save_batch_index, clear_cache)
 
 import math
 import time
@@ -55,10 +55,10 @@ def run_ingestion(job_id: str, repo_id: str, user_id: str):
 
 
 
-        state  = get_resume_state(job_id,repo_id)
+        state  = get_resume_state(repo_id=repo_id)
+        save_job_id(repo_id, job_id)
 
         logger.info(f"[{job_id[:8]}] Resume state: "
-            f"step={state['step']} | "
             f"batch_index={state['batch_index']} | "
             f"chunks_in_db={state['chunks_in_db']} | "
             f"safe_index={state['safe_index']}")
@@ -73,26 +73,23 @@ def run_ingestion(job_id: str, repo_id: str, user_id: str):
             raise Exception("No files fetched from repo")
         
         logger.info(f"{job_id[:8]} | Fetched {len(files)} files")
-        save_file_paths(job_id, files)   
-        save_step(job_id, "fetch")         
+         
         job.status = "parsing"
         job.progress = 25
         db.commit()
 
         # ── Parse ─────────────────────────────────────────
-        save_step(job_id, "parse")
+        
         chunks = parse_files(files)
         if not chunks:
             raise Exception("Failed to parse files")
         logger.info(f"Parsed {len(chunks)} chunks")
-        job.status = "embedding"
+        job.status = "storing"
         job.progress = 50
         db.commit()
 
-        save_step(job_id, "embed")
 
-        job.status = "storing"
-        db.commit()
+        
 
         start_index =   state["safe_index"]
         chunks_to_embed = chunks[start_index:]
@@ -129,7 +126,7 @@ def run_ingestion(job_id: str, repo_id: str, user_id: str):
                     amnt_embedded = store_embeddings_batch(repo_id=str(repo.id), chunks=embedded_chunks)
                     
                     current_index = start_index + i + len(batch)
-                    save_batch_index(job_id, current_index)
+                    save_batch_index(repo_id, current_index)
                     logger.info(f"Stored {amnt_embedded} embeddings")
                     job.progress = 50 + int(50*(current_index/total_chunks))
                     repo.chunks_indexed = current_index
@@ -138,7 +135,7 @@ def run_ingestion(job_id: str, repo_id: str, user_id: str):
                 except Exception as e:
                     error_msg = str(e).lower()
 
-                    if "rate" in error_msg or "quota" in error_msg or "429" in error_msg:
+                    if "rate limit" in error_msg or "quota" in error_msg or "429" in error_msg:
                         logger.warning(
                             f"[{job_id[:8]}] Rate limit on batch {batch_num} "
                             f"attempt {attempt + 1}/{MAX_ATTEMPTS}"
@@ -149,6 +146,11 @@ def run_ingestion(job_id: str, repo_id: str, user_id: str):
                             time.sleep(WAIT_TIME)
                             continue
                         else:
+                            repo.status = "failed"
+                            
+                            job.status = "failed"
+                            repo.error_message = "Max tries reached, retry later"
+                            job.error_message = f"Rate limit after {MAX_ATTEMPTS} attempts on batch {batch_num} Progress saved: {start_index + i} chunks."
                             raise Exception(
                                 f"Rate limit after {MAX_ATTEMPTS} attempts "
                                 f"on batch {batch_num}. "
@@ -169,7 +171,7 @@ def run_ingestion(job_id: str, repo_id: str, user_id: str):
         repo.error_message = None
         repo.chunks_indexed = total_stored
         db.commit()
-        clear_cache(job_id)
+        clear_cache(repo_id)
         logger.info(f"✅ Ingestion complete for repo: {repo.name} | {total_stored} chunks")
     except Exception as e:
         # ── Failure ───────────────────────────────────────

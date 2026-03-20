@@ -148,7 +148,7 @@ def embed_batch(chunks: list[dict]) -> list[dict]:
                         **chunk,
                         "vector": vectors[i]
                     })
-    return embed_chunks
+    return embedded_chunks
 
 
 def embed_query(text: str) -> list[float]:

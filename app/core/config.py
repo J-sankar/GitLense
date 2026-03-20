@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str
     QDRANT_URL: str
     QDRANT_API_KEY: str
+
+    JWT_SECRET_KEY:     str
+    JWT_ALGORITHM:      str ="HS256"
+    JWT_EXPIRE_MINUTES: int = 30
+
+
     class Config:
         env_file = ".env"
 

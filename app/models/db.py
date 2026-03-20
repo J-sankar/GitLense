@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint, Index
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -19,6 +19,7 @@ class User(Base):
     # ✅ User's repos go through UserRepo now
     user_repos = relationship("UserRepo", back_populates="user", cascade="all, delete")
     queries    = relationship("Query",    back_populates="user", cascade="all, delete")
+    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete")
 
 
 class Repo(Base):
@@ -27,7 +28,7 @@ class Repo(Base):
     id             = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name           = Column(String(255), nullable=False)
     repo_url       = Column(String(200), nullable=False, unique=True)  # ✅ unique
-    status         = Column(String(20), default="queued")
+    status         = Column(String(20), default="placed")
     chunks_indexed = Column(Integer, default=0)
     error_message  = Column(Text)
     created_at     = Column(DateTime(timezone=True), server_default=func.now())
@@ -88,3 +89,24 @@ class Query(Base):
 
     user = relationship("User", back_populates="queries")
     repo = relationship("Repo", back_populates="queries")
+
+
+
+
+
+
+# app/models/db.py
+class RefreshToken(Base):
+    __tablename__ = "refresh_tokens"
+
+    id         = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id    = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    token      = Column(String(500),        nullable=False, unique=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="refresh_tokens")
+
+    __table_args__ = (
+        Index("ix_refresh_tokens_token", "token"),
+    )

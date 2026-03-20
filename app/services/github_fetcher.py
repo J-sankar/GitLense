@@ -9,11 +9,23 @@ logger = get_logger(__name__)
 
 
 
+g = Github(settings.GITHUB_TOKEN)
+
+
+def get_repo_size(repo_url: str) ->int :
+    try:
+        repo_name = parse_repo_name(repo_url)
+        repo = g.get_repo(repo_name)
+        logger.info(f"Obtained Repo size: {repo.size} KB")
+        return repo.size
+    except Exception as e:
+        logger.warning(f"Could not get repo size: {e} → defaulting to medium")
+        return 2000
+
 
 
 def fetch_repo_files(repo_url: str) -> list[dict]:
     repo_name = parse_repo_name(repo_url)
-    g = Github(settings.GITHUB_TOKEN)
     repo = g.get_repo(repo_name)
 
     logger.info(f"Fetching files from repository: {repo.full_name}")

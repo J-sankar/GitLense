@@ -11,17 +11,16 @@ def init_redis():
     try:
         redis_conn = Redis.from_url(settings.REDIS_URL)
         redis_conn.ping()
-        logger.info("✅ Redis connection successful")
+        logger.info("✅ Redis connection successfull")
         return redis_conn
     except Exception as e:
         logger.error(f"❌ Redis connection failed: {e}")
         return None
 
 
-def init_queue(redis_conn):
+def init_queue(name:str ,redis_conn):
     try:
-        ingest_queue = Queue("ingestion", connection=redis_conn)
-        logger.info("✅ Queue initialised")
+        ingest_queue = Queue(name, connection=redis_conn)
         return ingest_queue
     except Exception as e:
         logger.error(f"❌ Queue initialisation failed: {e}")
@@ -29,4 +28,8 @@ def init_queue(redis_conn):
 
 
 redis_conn   = init_redis()
-ingest_queue = init_queue(redis_conn) if redis_conn else None
+
+
+small_queue = init_queue(f"ingestion:small",redis_conn) if redis_conn else None
+medium_queue = init_queue(f"ingestion:medium",redis_conn) if redis_conn else None
+large_queue = init_queue(f"ingestion:large",redis_conn) if redis_conn else None
