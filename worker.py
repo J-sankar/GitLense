@@ -5,6 +5,8 @@ from rq import Worker
 import sys
 logger = get_logger(__name__)
 
+
+
 QUEUES = {
     "small":small_queue,
     "medium": medium_queue,

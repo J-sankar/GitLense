@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_user_from_query
 from app.core.logger import get_logger
 from app.models.db import Repo, Job, UserRepo,User
 from app.schemas.ingest import IngestResponse, IngestRequest
 from app.services.github_fetcher import parse_repo_name
-
+from datetime import datetime, timezone
 
 from app.core.queue import queue_ingestion
 from app.utils.validators import validate_repo_url
@@ -17,22 +17,42 @@ import json
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/ingest", tags=["ingestion"],dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/ingest", tags=["ingestion"])
+
+
+def ensure_job_queued(job: Job, repo: Repo, user_id: str, db: Session):
+    """
+    If job exists but stuck in 'created' state
+    → move to queued and enqueue
+    """
+    if job.status == "created":
+        logger.info(f"Job {str(job.id)[:8]} stuck in created → re-queuing")
+        job.status  = "queued"
+        repo.status = "queued"
+        db.commit()
+
+        queue_ingestion(
+            repo_url = repo.repo_url,
+            job_id   = str(job.id),
+            repo_id  = str(repo.id),
+        )
+        logger.info(f"Job {str(job.id)[:8]} re-queued successfully")
 
 
 @router.post("/", response_model=IngestResponse)
 def ingest_repo(
-    payload: IngestRequest,
-    db: Session = Depends(get_db),
-    current_user : User = Depends(get_current_user)
+    payload:      IngestRequest,
+    db:           Session = Depends(get_db),
+    current_user: User    = Depends(get_current_user)
 ):
-    
-    if not validate_repo_url(payload.repo_url) :
+    if not validate_repo_url(payload.repo_url):
         raise HTTPException(400, "Invalid GitHub URL")
+
     repo = db.query(Repo).filter(Repo.repo_url == payload.repo_url).first()
 
     if repo:
-        logger.info("Repo found")
+        logger.info(f"Repo found: {repo.name} | status: {repo.status}")
+
         already_linked = db.query(UserRepo).filter(
             UserRepo.user_id == current_user.id,
             UserRepo.repo_id == repo.id
@@ -41,106 +61,91 @@ def ingest_repo(
         latest_job = db.query(Job).filter(
             Job.repo_id == repo.id
         ).order_by(Job.created_at.desc()).first()
-        
+
+        if latest_job:
+            ensure_job_queued(latest_job, repo, str(current_user.id), db)
 
 
-        if already_linked:
-            if repo.status == "completed":
-                return IngestResponse(
-                    job_id=latest_job.id,
-                    repo_id=repo.id,
-                    status=repo.status,
-                    message="Repo already linked to your account"
-                )
-            if repo.status in ("queued", "processing","storing"):
-                return IngestResponse(
-                    job_id=latest_job.id,
-                    repo_id=repo.id,
-                    status=repo.status,
-                    message="Repo is already being ingested"
-                )
 
-            if repo.status == "failed":
-                repo.status        = "queued"   # ✅ no trailing comma
-                repo.error_message = None
-                new_job = Job(repo_id=repo.id, status="queued", progress=0)
-                db.add(new_job)
-                db.commit()
-                logger.info(f"Repo re-enqueued, job id: {new_job.id}")
-                queue_ingestion(repo_url=repo.repo_url, job_id=str(new_job.id), repo_id=str(repo.id),user_id=str(current_user.id))
-                return IngestResponse(        # ✅ return here
-                    job_id=new_job.id,
-                    repo_id=repo.id,
-                    status="queued",
-                    message="Re-ingestion started"
-                )
-        else:
-            
-            
-            logger.debug("Repo not linked")
-            logger.debug(f"Repo status: {repo.status}")
-            if repo.status == "completed":
-                return IngestResponse(
-                    job_id  = latest_job.id,
-                    repo_id = repo.id,
-                    status  = "completed",
-                    message = "Repo already ingested, linking to your account"
-                )
+        # ✅ link user immediately if not already linked
+        if not already_linked:
+            db.add(UserRepo(user_id=current_user.id, repo_id=repo.id))
+            db.commit()
+            logger.info(f"UserRepo created for user {str(current_user.id)[:8]}")
 
-            if repo.status in ("queued","processing","storing"):
-                return IngestResponse(
-                    job_id  = latest_job.id,
-                    repo_id = repo.id,
-                    status  = repo.status,
-                    message = "Repo being ingested, you'll get access when done"
-                )
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # HANDLE BY STATUS
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        if repo.status == "completed":
+            return IngestResponse(
+                job_id  = latest_job.id,
+                repo_id = repo.id,
+                status  = repo.status,
+                message = "Repo already ingested" if already_linked else "Repo linked to your account"
+            )
 
-            if repo.status == "failed":
-                repo.status        = "queued"
-                repo.error_message = None
-                new_job = Job(repo_id=repo.id, status="queued", progress=0)
-                db.add(new_job)
-                db.commit()
-                queue_ingestion(
-                    repo_url = repo.repo_url,
-                    job_id   = str(new_job.id),
-                    repo_id  = str(repo.id),
-                    user_id  = str(current_user.id)
-                )
-                return IngestResponse(
-                    job_id  = new_job.id,
-                    repo_id = repo.id,
-                    status  = "queued",
-                    message = "Re-ingestion started"
-                )
+        if repo.status in ("queued", "processing"):
+            return IngestResponse(
+                job_id  = latest_job.id,
+                repo_id = repo.id,
+                status  = repo.status,
+                message = "Repo is already being ingested"
+            )
 
+        if repo.status == "failed":
+            repo.status        = "queued"
+            repo.error_message = None
+            new_job = Job(repo_id=repo.id, status="queued", progress=0)
+            db.add(new_job)
+            db.commit()
+            logger.info(f"Re-enqueued job: {new_job.id}")
+            queue_ingestion(
+                repo_url = repo.repo_url,
+                job_id   = str(new_job.id),
+                repo_id  = str(repo.id),
+            )
+            return IngestResponse(
+                job_id  = new_job.id,
+                repo_id = repo.id,
+                status  = "queued",
+                message = "Re-ingestion started"
+            )
 
-    # ── Fresh repo ────────────────────────────────────
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # FRESH REPO
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     repo_name = parse_repo_name(payload.repo_url)
     new_repo  = Repo(name=repo_name, repo_url=payload.repo_url, status="queued")
     db.add(new_repo)
-    db.flush()                             # ✅ get new_repo.id before commit
+    db.flush()
 
-    new_job = Job(repo_id=new_repo.id, status="queued", progress=0)  # ✅ progress not status
+    # ✅ link user immediately on fresh repo too
+    db.add(UserRepo(user_id=current_user.id, repo_id=new_repo.id))
+
+    new_job = Job(repo_id=new_repo.id, status="queued", progress=0)
     db.add(new_job)
     db.commit()
 
-    logger.info(f"Job scheduled, job id: {new_job.id}")
-    queue_ingestion(repo_url=new_repo.repo_url, job_id=str(new_job.id), repo_id=str(new_repo.id), user_id=str(current_user.id))
+    logger.info(f"Job scheduled: {new_job.id}")
+    queue_ingestion(
+        repo_url = new_repo.repo_url,
+        job_id   = str(new_job.id),
+        repo_id  = str(new_repo.id),
 
-    return IngestResponse(
-        job_id=new_job.id,
-        repo_id=new_repo.id,
-        status="queued",
-        message="Ingestion started"
     )
 
+    return IngestResponse(
+        job_id  = new_job.id,
+        repo_id = new_repo.id,
+        status  = "queued",
+        message = "Ingestion started"
+    )
 
 @router.get(path='/stream/{job_id}')
 async def stream_job_status(
     job_id:str,
     db: Session = Depends(get_db),
-    current_user : User = Depends(get_current_user)):
+    current_user : User = Depends(get_current_user_from_query)):
     async def event_generator():
         while True:
             try:

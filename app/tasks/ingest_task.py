@@ -20,7 +20,7 @@ BATCH_SIZE = 10
 
 WAIT_TIME = 60
 
-def run_ingestion(job_id: str, repo_id: str, user_id: str):
+def run_ingestion(job_id: str, repo_id: str):
     db: Session = SessionLocal()
 
     try:
@@ -33,17 +33,7 @@ def run_ingestion(job_id: str, repo_id: str, user_id: str):
         if not repo:
             raise Exception(f"Repo {repo_id} not found")
         
-        existing_user_repo = db.query(UserRepo).filter(
-            UserRepo.user_id == uuid.UUID(user_id),
-            UserRepo.repo_id == uuid.UUID(repo_id)
-        ).first()
-
-        if not existing_user_repo:
-            db.add(UserRepo(
-                user_id = uuid.UUID(user_id),
-                repo_id = uuid.UUID(repo_id)
-            ))
-            logger.info(f"[{job_id[:8]}] UserRepo created")
+        
         # ── Mark started ──────────────────────────────────
         job.status     = "started"
         job.started_at = datetime.now(timezone.utc)

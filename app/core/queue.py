@@ -30,14 +30,14 @@ def get_ingestion_queue(repo_url: str) -> Queue :
         return large_queue
     
 
-def queue_ingestion(repo_url: str, job_id: str, repo_id: str, user_id: str) :
+def queue_ingestion(repo_url: str, job_id: str, repo_id: str) :
     from app.tasks.ingest_task import run_ingestion
     queue = get_ingestion_queue(repo_url)
 
     if not queue:
         raise Exception("Queue Service Not Available")
     queue.enqueue(
-        run_ingestion, str(job_id),str(repo_id), str(user_id),
+        run_ingestion, str(job_id),str(repo_id),
         job_timeout = 600,
         retry = Retry(max=3, interval=[60,120,240])
     )
