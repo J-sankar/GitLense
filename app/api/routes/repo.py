@@ -24,8 +24,6 @@ def get_repos(
 
         repos = db.query(Repo).filter(Repo.id.in_([repo.repo_id for repo in user_repos])).all()
         logger.info(f"Fetched repos count: {len(repos)}")
-        if len(user_repos) == 0:
-            raise HTTPException(status_code=200, detail='No repo found')
         for repo in repos:
             if repo.status == "completed":
                 repo.error_message == None

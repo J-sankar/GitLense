@@ -2,16 +2,14 @@ from sqlalchemy.orm import Session
 from sqlalchemy import asc
 from fastapi import HTTPException, status
 from app.core.logger import get_logger
-from app.models.db import User, RefreshToken
-from app.core.security import (hash_password,verify_password,create_access_token,create_refresh_token)
-from datetime import datetime, timedelta,timezone
-import uuid
-import hashlib
+from app.models.db import User
+from app.core.security import (hash_password,verify_password,create_access_token,create_refresh_token,save_refresh_token)
+
+
 
 logger = get_logger(__name__)
 
-def hash_token(token: str) -> str:
-    return hashlib.sha256(token.encode()).hexdigest()
+
 
 def register_user(
         db: Session ,
@@ -101,49 +99,5 @@ def login_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
-def save_refresh_token(db: Session, user_id: str, token: str):
-    existing_tokens = db.query(RefreshToken).filter(
-        RefreshToken.user_id == uuid.UUID(user_id)
-    ).order_by(RefreshToken.created_at.asc()).all()
 
-    if len(existing_tokens) >= 2:
-        db.delete(existing_tokens[0])
-
-    db.add(RefreshToken(
-        user_id    = uuid.UUID(user_id),
-        token      = hash_token(token),   # ✅ store hash
-        expires_at = datetime.now(timezone.utc) + timedelta(days=7)
-    ))
-    db.commit()
-
-
-def verify_refresh_token(db:Session, token: str) -> RefreshToken | None  :
-    from app.core.security import decode_token
-    payload = decode_token(token)
-    if not payload:
-        return None
-
-    user_id = payload.get("sub")
-    token_hash = hash_token(token)
     
-    return db.query(RefreshToken).filter(
-        RefreshToken.user_id    == uuid.UUID(user_id),
-        RefreshToken.token      == token_hash,          # ✅ compare hashes
-        RefreshToken.expires_at >  datetime.now(timezone.utc)
-    ).first()
-
-
-def delete_refresh_token(db: Session, token: str):
-    from app.core.security import decode_token
-    payload = decode_token(token)
-    if not payload:
-        return
-
-    user_id    = payload.get("sub")
-    token_hash = hash_token(token)
-
-    db.query(RefreshToken).filter(
-        RefreshToken.user_id == uuid.UUID(user_id),
-        RefreshToken.token   == token_hash
-    ).delete()
-    db.commit()
