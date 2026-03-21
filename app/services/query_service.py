@@ -3,6 +3,8 @@ from app.services.vector import search_embeddings
 from app.services.llm import ask_llm
 from app.core.logger import get_logger
 
+from fastapi import HTTPException,status
+
 import uuid
 
 logger = get_logger(__name__)
@@ -10,7 +12,7 @@ logger = get_logger(__name__)
 
 def answer_question(repo_id:str, query:str):
     try:
-
+        logger.debug("Embedding question")
         query_embed = embed_query(query)
         logger.debug(f"query embedded : length: {len(query_embed)}")
 
@@ -26,7 +28,14 @@ def answer_question(repo_id:str, query:str):
 
         return result
     except Exception as e:
-        print("Exception")
+        err = str(e).lower()
+        if "rate limit" in err or "quota" in err:
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                                detail="Your have reached your current quota, please try again later or upgrade for better limits")
+        else:
+            logger.error(f"Exception, {str(e)}")
+            raise
+
 
 if __name__ == "__main__":
     answer_question(uuid.UUID("e448a4f1-4960-457c-ad70-1482b5ae59f6"),"how does the auth work")
