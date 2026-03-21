@@ -2,6 +2,16 @@ import logging
 import sys
 from app.core.config import settings
 
+
+logging.getLogger("rq.worker").setLevel(logging.ERROR)
+logging.getLogger("rq").setLevel(logging.ERROR)
+logging.getLogger("google.api_core").setLevel(logging.ERROR)
+logging.getLogger("grpc").setLevel(logging.ERROR)
+logging.getLogger("google.generativeai").setLevel(logging.ERROR)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+
 def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
 
