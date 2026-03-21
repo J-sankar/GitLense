@@ -10,7 +10,10 @@ logger = get_logger(__name__)
 def get_user_id(request: Request) ->str:
     try:
         auth  = request.headers.get("Authorization", "")
-        token = auth.replace("Bearer", "")
+        if auth.startswith("Bearer "):
+            token = auth.split(" ")[1]
+        else:
+            token = auth.strip()
         if token:
             payload = decode_token(token)
             if payload:

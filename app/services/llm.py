@@ -63,15 +63,16 @@ def ask_llm(question: str, chunks: list[dict]) -> str:
         messages=[
             {
                 "role": "system",
-                "content": "You are an expert code assistant that answers questions about codebases."
+                "content": "You are GitLense, an expert code assistant that answers questions about codebases."
             },
             {
                 "role": "user",
                 "content": prompt
             }
         ],
-        temperature=0.2,   # low temperature for factual code answers
-        max_tokens=1024,
+        response_format={"type": "json_object"},
+        temperature=0.1,   # low temperature for factual code answers
+        max_tokens=2048,
     )
 
     raw = response.choices[0].message.content

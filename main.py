@@ -1,13 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.models.db import User, Repo, Job, Query
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from contextlib  import asynccontextmanager
 from app.core.database import engine, Base
 from app.api.routes.ingest import router as ingest_router
 from app.api.routes.query import router as query_router
 from app.api.routes.repo import router as repo_router
 from app.api.routes.auth import router as auth_router
-
+from app.core.limiter import limiter
 
 
 
@@ -21,7 +22,10 @@ async def lifespan(app: FastAPI):
     # Shutdown code (if needed)
     print("Shutting down application...")
 
-app = FastAPI(title="GitLense API", lifespan=lifespan)
+
+app = FastAPI(title="GitLense API", lifespan=lifespan,redirect_slashes=False)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded,_rate_limit_exceeded_handler)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[

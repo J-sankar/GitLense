@@ -17,7 +17,6 @@ logger = get_logger(__name__)
 
 MAX_ATTEMPTS = 3 
 BATCH_SIZE = 10
-
 WAIT_TIME = 60
 
 def run_ingestion(job_id: str, repo_id: str):
@@ -146,6 +145,7 @@ def run_ingestion(job_id: str, repo_id: str):
                                 f"on batch {batch_num}. "
                                 f"Progress saved: {start_index + i} chunks."
                             )
+                            
                     else:
                         logger.error(f"[{job_id[:8]}] Embed failed: {str(e)}")
                         raise

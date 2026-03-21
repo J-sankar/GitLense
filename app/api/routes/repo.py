@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException,Request
 from sqlalchemy.orm import Session
 from app.models.db import Repo,UserRepo,User
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.schemas.repo import RepoResponse
 from app.core.logger import get_logger
+from app.core.limiter import limiter
 import uuid
 
 logger = get_logger(__name__)
@@ -13,8 +14,10 @@ router = APIRouter(prefix='/repos',tags=["Repos"])
 
 
 
-@router.get(path='/', response_model=list[RepoResponse])
+@router.get(path="", response_model=list[RepoResponse])
+@limiter.limit("60/minute")
 def get_repos(
+    request:Request,
     db: Session = Depends(get_db),
     current_user : User = Depends(get_current_user)
 ):

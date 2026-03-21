@@ -1,12 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException,Request
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import get_current_user, get_current_user_from_query
+from app.core.limiter import limiter
 from app.core.logger import get_logger
 from app.models.db import Repo, Job, UserRepo,User
 from app.schemas.ingest import IngestResponse, IngestRequest
 from app.services.github_fetcher import parse_repo_name
-from datetime import datetime, timezone
 
 from app.core.queue import queue_ingestion
 from app.utils.validators import validate_repo_url
@@ -18,7 +18,6 @@ import json
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/ingest", tags=["ingestion"])
-
 
 def ensure_job_queued(job: Job, repo: Repo, user_id: str, db: Session):
     """
@@ -39,9 +38,11 @@ def ensure_job_queued(job: Job, repo: Repo, user_id: str, db: Session):
         logger.info(f"Job {str(job.id)[:8]} re-queued successfully")
 
 
-@router.post("/", response_model=IngestResponse)
+@router.post("", response_model=IngestResponse)
+@limiter.limit("10/minute")
 def ingest_repo(
     payload:      IngestRequest,
+    request: Request,
     db:           Session = Depends(get_db),
     current_user: User    = Depends(get_current_user)
 ):
@@ -142,8 +143,10 @@ def ingest_repo(
     )
 
 @router.get(path='/stream/{job_id}')
+@limiter.limit("30/minute")
 async def stream_job_status(
     job_id:str,
+    request: Request,
     db: Session = Depends(get_db),
     current_user : User = Depends(get_current_user_from_query)):
     async def event_generator():
