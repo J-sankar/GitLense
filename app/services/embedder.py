@@ -52,24 +52,40 @@ if settings.EMBEDDING_PROVIDER == "voyage":
         return result.embeddings[0]
 
 elif settings.EMBEDDING_PROVIDER == "gemini":
-    import google.generativeai as genai
-    genai.configure(api_key=settings.GEMINI_API_KEY)
+    # import google.generativeai as genai
+    from google import genai
+    
+    # genai.configure(api_key=settings.GEMINI_API_KEY)
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
 
     def _embed_documents(texts: list[str]) -> list[list[float]]:
-        return [
-        genai.embed_content(
-            model="models/gemini-embedding-001",
-            content=t,
-            task_type="retrieval_document"
-        )["embedding"]
-        for t in texts
-    ]
+        try:
+            response = client.models.embed_content(
+                model="gemini-embedding-001",
+                contents=texts,
+                config={
+                  "task_type":"RETRIEVAL_DOCUMENT"
+                })
+            return [item.values for item in response.embeddings]
+        except Exception as e :
+            logger.error(str(e))
+            raise Exception(f"Error: {str(e)}")
+    
     def _embed_query(text: str) -> list[float]:
-        return genai.embed_content(
-        model="models/gemini-embedding-001",
-        content=text,
-        task_type="retrieval_query"
-    )["embedding"]
+        try:
+            response = client.models.embed_content(
+            model="gemini-embedding-001",
+            contents=text,
+            config={
+                "task_type": "RETRIEVAL_QUERY"
+            }
+        )
+        # Access the first (and only) embedding result
+            return response.embeddings[0].values
+        except Exception as e:
+            logger.error(str(e))
+            raise Exception(f"Error: {str(e)}")
 
 else:
     raise ValueError(f"Unknown EMBEDDING_PROVIDER: {settings.EMBEDDING_PROVIDER}")
