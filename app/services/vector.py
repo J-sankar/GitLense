@@ -6,7 +6,7 @@ import uuid
 from app.core.config import settings
 from app.core.logger import get_logger
 from app.utils.compression import compress_code ,decompress_code
-
+from app.utils.crypto import get_deterministic_id
 logger = get_logger(__name__)
 
 
@@ -38,7 +38,7 @@ def store_embeddings_batch(repo_id: str, chunks: list[dict]) -> int:
         logger.info(f"Storing batch {batch_count}/{batch_length} ")
         points = [
             PointStruct(
-                id      = str(uuid.uuid4()),
+                id      = get_deterministic_id(filename=chunk["file"], code=chunk["code"]),
                 vector  = chunk["vector"],
                 payload = {
                     "name":       chunk["name"],
