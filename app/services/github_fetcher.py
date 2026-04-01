@@ -3,7 +3,6 @@ from github import Github
 from app.core.config import settings
 from app.utils.github import parse_repo_name,get_language
 
-import os
 
 logger = get_logger(__name__)
 

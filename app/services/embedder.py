@@ -6,8 +6,8 @@ from app.utils.text import build_embed_text
 import time
 import json
 
-logger = get_logger(__name__)
 import math
+logger = get_logger(__name__)
 
 MAX_ATTEMPTS = 3
 WAIT_TIME = 60
@@ -32,7 +32,7 @@ def load_progress(job_id:str) -> dict | None :
     
     cached  = redis_conn.get(f"embedd_progress:{job_id}")
     if cached:
-        logger.info(f"Resuming from saved progress")
+        logger.info("Resuming from saved progress")
         return json.loads(cached)
     return None
         

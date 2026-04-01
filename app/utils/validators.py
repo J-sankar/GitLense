@@ -1,5 +1,4 @@
-# app/utils/validators.py
-from uuid import UUID
+
 from urllib.parse import urlparse
 
 
@@ -11,5 +10,5 @@ def validate_repo_url(url: str) -> bool:
             parsed.scheme in ("http", "https") and
             "github.com" in parsed.netloc
         )
-    except:
+    except Exception:
         return False

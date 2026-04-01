@@ -8,7 +8,6 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     VOYAGE_API_KEY: str
     GEMINI_API_KEY: str
-    CHROMA_PATH:    str = "./chroma_data"
     ENVIRONMENT: str = "development"
     EMBEDDING_PROVIDER: str   
     REDIS_URL: str

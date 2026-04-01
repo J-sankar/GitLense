@@ -2,8 +2,7 @@
 import math
 from app.core.qdrant import qdrant_client as client
 from qdrant_client.models import Distance, PointStruct, VectorParams
-import uuid 
-from app.core.config import settings
+ 
 from app.core.logger import get_logger
 from app.utils.compression import compress_code ,decompress_code
 from app.utils.crypto import get_deterministic_id
@@ -13,16 +12,15 @@ logger = get_logger(__name__)
 
 def get_or_create_collection(repo_id:str,vector_size: int):
     collection_name = f"repo_{repo_id}"
-    try:
-        client.get_collection(collection_name=collection_name)
-    except:
+    if not client.collection_exists(collection_name):
         client.create_collection(
             collection_name=collection_name,
-            vectors_config= VectorParams(
-                size=vector_size,
-                distance = Distance.COSINE
-                )
+            vectors_config=VectorParams(
+                size=vector_size, 
+                distance=Distance.COSINE
             )
+        )
+    
     return collection_name
 
 
@@ -65,43 +63,11 @@ def get_chunks_count(repo_id:str) ->int:
     try:
         info = client.get_collection(collection_name=collection)
         return info.points_count
-    except:
+    except Exception:
         return 0 
         
 
-    collection = get_collection
-
-    existing_count = collection.count()
-    if existing_count > 0:
-        logger.info(f"Repo {repo_id} already has {existing_count} chunks in ChromaDB, skipping store")
-        return existing_count
-    ids = []
-    embeddings = []
-    documents = []
-    metadatas = []
-
-    for i, chunk in enumerate(chunks):
-        ids.append(f"{repo_id}_chunk_{i}")
-        embeddings.append(chunk["vector"])
-        documents.append(chunk["code"])
-
-        metadatas.append({
-            "file": chunk["file"],
-            "language": chunk["language"],
-            "type" : chunk["type"],
-            "name" : chunk["name"],
-            "start_line": int(chunk["start_line"]),
-            "end_line": int(chunk["end_line"])
-        })
-
-        collection.add(
-            ids=ids,
-            embeddings=embeddings,
-            documents=documents,
-            metadatas=metadatas
-        )
-    return len(chunks)
-
+    
 def search_embeddings(repo_id:str, query_vector:str, top_k : int = 5) ->list[dict] :
     logger.debug("QUery Reached here")
     collection  = f"repo_{repo_id}"
@@ -131,7 +97,7 @@ def search_embeddings(repo_id:str, query_vector:str, top_k : int = 5) ->list[dic
             "name":       r.payload["name"],
             "start_line": r.payload["start_line"],
             "end_line":   r.payload["end_line"],
-            "score":      r.score  # cosine similarity
+            "score":      r.score  
         })
 
     return chunks 
@@ -140,7 +106,7 @@ def search_embeddings(repo_id:str, query_vector:str, top_k : int = 5) ->list[dic
 def delete_embeddings(repo_id: str):
     try:
         client.delete_collection(f"repo_{repo_id}")
-    except:
+    except Exception:
         pass
 
 

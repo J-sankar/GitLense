@@ -76,7 +76,7 @@ def ask_llm(question: str, chunks: list[dict]) -> str:
     )
 
     raw = response.choices[0].message.content
-    logger.info(f"Groq response received")
+    logger.info("Groq response received")
     try:
         # strip markdown code blocks if LLM adds them
         clean = raw.strip()
