@@ -13,9 +13,11 @@ QUEUES = {
     "large": large_queue
 }
 
+
+
 if __name__ == "__main__":
     if not redis_conn :
-        logger.error("❌ Cannot start worker: Redis is not connected")
+        logger.error("Cannot start worker: Redis is not connected")
         sys.exit(1)
     else:
         recover_abandoned_jobs()
@@ -37,4 +39,4 @@ if __name__ == "__main__":
             sys.exit(1)
 
         worker = Worker(queues=queues, connection=redis_conn)
-        worker.work()
+        worker.work(with_scheduler=True)
