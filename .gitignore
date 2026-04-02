@@ -13,9 +13,3 @@ wheels/
 .python-version
 
 
-# chromadb local data
-chroma_data/
-
-# test files
-test_*.py
-test/
