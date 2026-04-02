@@ -13,7 +13,7 @@ import uuid
 logger = get_logger(__name__)
 router = APIRouter(prefix="/auth/v1", tags=["auth"])
 
-@router.post(path="/register",response_model=RegisterResponse)
+@router.post(path="/register",response_model=RegisterResponse,status_code=status.HTTP_201_CREATED)
 @limiter.limit("3/minute")
 def register(
     request:Request,
