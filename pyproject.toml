@@ -34,7 +34,6 @@ dependencies = [
     "tree-sitter-javascript>=0.25.0",
     "tree-sitter-python>=0.25.0",
     "tree-sitter-typescript>=0.23.2",
-    "typing>=3.10.0.0",
     "uvicorn>=0.41.0",
     "voyageai>=0.3.7",
 ]
