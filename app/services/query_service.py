@@ -23,8 +23,8 @@ def answer_question(repo_id:str, query:str):
         result = ask_llm(question=query, chunks=chunks)
 
         logger.info(f"\nanswer:{result['answer']}")
-        for source in result['sources']:
-            logger.debug(source)
+        # for source in result['sources']:
+        #     logger.debug(source)
 
         return result
     except Exception as e:
