@@ -1,5 +1,5 @@
 from app.core.logger import get_logger
-from github import Github
+from github import Github,Auth
 from app.core.config import settings
 from app.utils.github import parse_repo_name,get_language
 
@@ -8,7 +8,8 @@ logger = get_logger(__name__)
 
 
 
-g = Github(settings.GITHUB_TOKEN)
+g = Github(auth=Auth.Token(settings.GITHUB_TOKEN))
+
 
 
 def get_repo_size(repo_url: str) ->int :
