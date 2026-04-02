@@ -1,5 +1,4 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import asc
 from fastapi import HTTPException, status
 from app.core.logger import get_logger
 from app.models.db import User
@@ -77,11 +76,11 @@ def login_user(
 
 
         access_token = create_access_token(user_id=str(user.id))
-        logger.info(f"Access token created") 
+        logger.info("Access token created") 
         refresh_token = create_refresh_token(user_id=str(user.id))
-        logger.info(f"Refresh token created")       
+        logger.info("Refresh token created")       
         save_refresh_token(db,user_id=str(user.id), token=refresh_token)
-        logger.info(f"Refresh token saved")
+        logger.info("Refresh token saved")
 
         logger.info(f"User verified , email : {email}")
         return {

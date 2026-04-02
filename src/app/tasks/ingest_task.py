@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 import uuid
 
-from app.models.db import Job, Repo, UserRepo
+from app.models.db import Job, Repo
 from app.core.database import SessionLocal
 from app.core.logger import get_logger
 from app.services.github_fetcher import fetch_repo_files
@@ -148,7 +148,13 @@ def run_ingestion(job_id: str, repo_id: str):
                             
                     else:
                         logger.error(f"[{job_id[:8]}] Embed failed: {str(e)}")
-                        raise
+                        # Permanent error: mark job/repo as failed and stop retrying by returning
+                        repo.status = "failed"
+                        job.status = "failed"
+                        repo.error_message = str(e)
+                        job.error_message = str(e)
+                        db.commit()
+                        return
 
 
         # ── Success ───────────────────────────────────────
@@ -162,10 +168,9 @@ def run_ingestion(job_id: str, repo_id: str):
         repo.chunks_indexed = total_stored
         db.commit()
         clear_cache(repo_id)
-        logger.info(f"✅ Ingestion complete for repo: {repo.name} | {total_stored} chunks")
+        logger.info(f"Ingestion complete for repo: {repo.name} | {total_stored} chunks")
     except Exception as e:
-        # ── Failure ───────────────────────────────────────
-        logger.error(f"❌ Ingestion failed for repo {repo_id}: {e}")
+        logger.error(f"Ingestion failed for repo {repo_id}: {e}")
         if job:
             job.status        = "failed"
             job.error_message = str(e)
@@ -173,8 +178,7 @@ def run_ingestion(job_id: str, repo_id: str):
             repo.status        = "failed"
             repo.error_message = str(e)
         db.commit()
-        raise   # ← re-raise so RQ marks job as failed too
+        raise 
 
     finally:
-        # ── Cleanup ───────────────────────────────────────
-        db.close()  # always runs whether success or failure
+        db.close() 

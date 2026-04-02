@@ -1,5 +1,4 @@
-from pydantic import BaseModel, HttpUrl
-from uuid import UUID
+from pydantic import BaseModel
 
 
 class QueryRequest(BaseModel):

@@ -6,7 +6,7 @@ from app.core.security import get_current_user
 from app.schemas.repo import RepoResponse
 from app.core.logger import get_logger
 from app.core.limiter import limiter
-import uuid
+
 
 logger = get_logger(__name__)
 
@@ -29,7 +29,7 @@ def get_repos(
         logger.info(f"Fetched repos count: {len(repos)}")
         for repo in repos:
             if repo.status == "completed":
-                repo.error_message == None
+                repo.error_message is None
                 db.commit()
         return [RepoResponse(id=str(repo.id), name=repo.name, url=repo.repo_url,status=repo.status,chunks_indexed=repo.chunks_indexed,created_at=repo.created_at,error=repo.error_message) for repo in repos]
     except Exception as e:

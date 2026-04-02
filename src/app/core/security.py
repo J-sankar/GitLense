@@ -10,7 +10,13 @@ from app.core.config import settings
 from app.core.logger import get_logger
 import hashlib
 
-from app.models.db import User, RefreshToken
+from app.models.db import RefreshToken
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+import uuid
+
 
 
 
@@ -31,7 +37,8 @@ def create_access_token(user_id: str) ->str :
     payload = {
         "sub": user_id,
         "exp": expire,
-        "type": "access"
+        "type": "access",
+        "jti": str(uuid.uuid4())
     }
 
     return jwt.encode(payload,settings.JWT_SECRET_KEY,settings.JWT_ALGORITHM)
@@ -133,11 +140,6 @@ def clear_refresh_cookie(response: Response):
         samesite = "lax"
     )
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
-from app.core.database import get_db
-import uuid
 
 bearer_scheme = HTTPBearer()
 

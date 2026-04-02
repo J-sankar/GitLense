@@ -20,7 +20,8 @@ Code:
 {chunk['code']}
 """
     prompt = f"""You are an expert code assistant. Answer the user's question based ONLY on the code context provided below.
-If the answer is not in the context, say "I couldn't find relevant code for this question. If answer is found give the source as well."
+If the answer is not in the context, say "I couldn't find relevant code for this question. If answer is found give the source as well. Always give detailed and brief explanations if answers are found.
+Maintain a lightful and friendly tone"
 
 ── Code Context ─────────────────────────
 {context}

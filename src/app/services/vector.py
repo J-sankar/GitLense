@@ -32,7 +32,7 @@ def store_embeddings_batch(repo_id: str, chunks: list[dict]) -> int:
     batch_count = 1 
 
     for i in range(0, len(chunks), batch_size) :
-        batch = chunks[i:i+batch_size+1]
+        batch = chunks[i:i+batch_size]
         logger.info(f"Storing batch {batch_count}/{batch_length} ")
         points = [
             PointStruct(

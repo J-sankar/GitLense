@@ -9,7 +9,6 @@ from app.models.db import Query,User
 from app.services.query_service import answer_question
 from app.core.limiter import limiter
 
-import uuid
 
 logger = get_logger(__name__)
 

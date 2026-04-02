@@ -1,10 +1,8 @@
 import json
-
 from app.core.redis import redis_conn as redis 
 from app.core.database import SessionLocal
 from app.core.logger import get_logger
 import uuid
-
 
 logger = get_logger(__name__)
 
