@@ -24,7 +24,7 @@ def get_repo_size(repo_url: str) ->int :
 
 
 
-def fetch_repo_files(repo_url: str) -> list[dict]:
+async def fetch_repo_files(repo_url: str) -> list[dict]:
     repo_name = parse_repo_name(repo_url)
     repo = g.get_repo(repo_name)
 
