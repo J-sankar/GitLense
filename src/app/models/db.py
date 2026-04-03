@@ -38,6 +38,7 @@ class Repo(Base):
     user_repos = relationship("UserRepo", back_populates="repo", cascade="all, delete")
     jobs       = relationship("Job",      back_populates="repo", cascade="all, delete")
     queries    = relationship("Query",    back_populates="repo", cascade="all, delete")
+    files = relationship("FileMetadata", back_populates="repo", cascade="all, delete-orphan")
 
     
 
@@ -92,10 +93,6 @@ class Query(Base):
 
 
 
-
-
-
-# app/models/db.py
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
@@ -109,4 +106,24 @@ class RefreshToken(Base):
 
     __table_args__ = (
         Index("ix_refresh_tokens_token", "token"),
+    )
+
+
+
+class FileMetaData(Base):
+    __tablename__ = "file_metadata" 
+
+    id  = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    repo_id    = Column(UUID(as_uuid=True), ForeignKey("repos.id", ondelete="CASCADE"), nullable=False)
+    file_path = Column(Text , nullable=False)
+    file_hash = Column(String(64), nullable=False)
+    imports    = Column(JSONB, default=[]) 
+    exports    = Column(JSONB, default=[])
+    summary  = Column(Text)
+    status     = Column(String(20), default="pending")
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    repo  = relationship("Repo", back_populates="files")
+    __table_args__ = (
+        Index("idx_repo_file_path", "repo_id", "file_path", unique=True),
+        {"extend_existing": True}
     )
