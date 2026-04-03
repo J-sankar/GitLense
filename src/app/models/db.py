@@ -38,7 +38,7 @@ class Repo(Base):
     user_repos = relationship("UserRepo", back_populates="repo", cascade="all, delete")
     jobs       = relationship("Job",      back_populates="repo", cascade="all, delete")
     queries    = relationship("Query",    back_populates="repo", cascade="all, delete")
-    files = relationship("FileMetadata", back_populates="repo", cascade="all, delete-orphan")
+    files = relationship("FileMetaData", back_populates="repo", cascade="all, delete-orphan")
 
     
 
