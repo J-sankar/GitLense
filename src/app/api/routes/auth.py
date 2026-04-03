@@ -48,6 +48,7 @@ def login(
 
 
 @router.post("/refresh", response_model=TokenResponse)
+@limiter.limit("5/minute")
 def refresh(
     request:  Request,
     response: Response,
@@ -106,6 +107,7 @@ def refresh(
     )
 
 @router.post("/logout")
+@limiter.limit("5/minute")
 def logout(
     request:      Request,
     response:     Response,
