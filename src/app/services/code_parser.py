@@ -21,67 +21,62 @@ _JAVA_LANGUAGE = Language(tsJava.language())
 
 LANGUAGE_CONFIG = {
     "py": {
-        "parser":     Parser(_PY_LANGUAGE),
-        "node_types": ["function_definition", "class_definition"]
+        "parser": Parser(_PY_LANGUAGE),
+        "node_types": ["function_definition", "class_definition"],
+        "parent_types": ["class_definition"],
+        "import_types": ["import_statement", "import_from_statement"],
+        "export_types": [] 
     },
     "js": {
-        "parser":     Parser(_JS_LANGUAGE),
-        "node_types": [ "function_declaration",        # function foo() {}
-        "function_expression",         # const foo = function() {}
-        "arrow_function",              # const foo = () => {}
-        "generator_function_declaration", # function* foo() {}
-
-        # ── Classes ───────────────────────────────────
-        "class_declaration",           # class Foo {}
-        "method_definition",           # foo() {} inside class
-
-        # ── React/JSX ─────────────────────────────────
-        "jsx_element",                 # <div>...</div>
-        "jsx_self_closing_element",    # <Component />
-
-        # ── Imports ───────────────────────────────────
-        "import_statement",            # import x from 'y'
-
-        # ── Exports ───────────────────────────────────
-        "export_statement",       ]
+        "parser": Parser(_JS_LANGUAGE),
+        "node_types": [
+            "function_declaration", "function_expression", "arrow_function", 
+            "generator_function_declaration", "class_declaration", "method_definition",
+            "jsx_element", "jsx_self_closing_element"
+        ],
+        "parent_types": ["class_declaration"],
+        "import_types": ["import_statement"],
+        "export_types": ["export_statement", "export_declaration"]
     },
     "ts": {
-        "parser":     Parser(_TS_LANGUAGE),
-        "node_types": [ "function_declaration",        # function foo() {}
-        "function_expression",         # const foo = function() {}
-        "arrow_function",              # const foo = () => {}
-        "generator_function_declaration", # function* foo() {}
-
-        # ── Classes ───────────────────────────────────
-        "class_declaration",           # class Foo {}
-        "method_definition",           # foo() {} inside class
-
-        # ── React/JSX ─────────────────────────────────
-        "jsx_element",                 # <div>...</div>
-        "jsx_self_closing_element",    # <Component />
-
-        # ── Imports ───────────────────────────────────
-        "import_statement",            # import x from 'y'
-
-        # ── Exports ───────────────────────────────────
-        "export_statement",       ]
+        "parser": Parser(_TS_LANGUAGE),
+        "node_types": [
+            "function_declaration", "function_expression", "arrow_function",
+            "class_declaration", "method_definition", "jsx_element", 
+            "jsx_self_closing_element"
+        ],
+        "parent_types": ["class_declaration", "interface_declaration", "enum_declaration"], 
+        "import_types": ["import_statement"], 
+        "export_types": ["export_statement", "export_declaration"] 
     },
     "java": {
-        "parser":     Parser(_JAVA_LANGUAGE),
-        "node_types": ["method_declaration", "class_declaration", "interface_declaration"]
-    },
-    "html": {
-        "parser":     Parser(Language(tsHtml.language())),
-        "node_types": ["element", "script_element", "style_element"]
+        "parser": Parser(_JAVA_LANGUAGE),
+        "node_types": ["method_declaration", "class_declaration", "interface_declaration"],
+        "parent_types": ["class_declaration", "interface_declaration", "enum_declaration"],
+        "import_types": ["import_declaration"],
+        "export_types": []
     },
     "c": {
-        "parser":     Parser(Language(tsC.language())),
-        "node_types": ["function_definition", "struct_specifier", "declaration"]
+        "parser": Parser(Language(tsC.language())),
+        "node_types": ["function_definition", "struct_specifier"], 
+        "parent_types": ["struct_specifier", "union_specifier", "enum_specifier"],
+        "import_types": ["preproc_include"], 
+        "export_types": []
     },
     "go": {
-        "parser":     Parser(Language(tsGo.language())),
-        "node_types": ["function_declaration", "method_declaration", "type_declaration"]
+        "parser": Parser(Language(tsGo.language())),
+        "node_types": ["function_declaration", "method_declaration", "type_declaration"],
+        "parent_types": ["type_declaration"],
+        "import_types": ["import_declaration"], 
+        "export_types": [] 
     },
+    "html": {
+        "parser": Parser(Language(tsHtml.language())),
+        "node_types": ["element", "script_element", "style_element"],
+        "parent_types": ["element"], 
+        "import_types": [],
+        "export_types": []
+    }
 }
 
 def extract_name(node, contents:str)->str:
@@ -105,16 +100,19 @@ def extract_name(node, contents:str)->str:
     return "anonymous"
 
 
-def walk(node, content:str, node_types:list[str], chunk:list[dict], language:str, path:str)->None:
+def walk(node, content:str, config:dict, chunks:list[dict], language:str, path:str,parent_scope:str)->None:
     
+    node_types = config["node_types"]
+    parent_types = config.get("parent_types",[])
+    name = extract_name(node, content)
     if node.type in node_types:
-        name = extract_name(node, content)
         code = content[node.start_byte:node.end_byte]
 
         logger.debug(f"Found {language} code: {name} of type {node.type} at {path}")
 
-        chunk.append({
+        chunks.append({
             "name": name,
+            "parent_scope": parent_scope,
             "code": code,
             "language": language,
             "file": path,
@@ -125,12 +123,16 @@ def walk(node, content:str, node_types:list[str], chunk:list[dict], language:str
         })
 
         logger.debug(f"Extracted {language} chunk: {name} of type {node.type} from {path} lines {node.start_point[0] + 1}-{node.end_point[0] + 1}")
+
+    new_scope = name if node.type in parent_types else parent_scope
+
+
     for child in node.children:
-        walk(child, content, node_types, chunk, language, path)
+        walk(child, content, config, chunks, language, path,parent_scope=new_scope)
 
 
 
-def extract_chunks(file_path:str, content:str, language:str)->list[dict]:
+def extract_chunks(file_path:str, content:str, language:str)->dict:
     config  = LANGUAGE_CONFIG.get(language)
 
     if not config:
@@ -141,16 +143,37 @@ def extract_chunks(file_path:str, content:str, language:str)->list[dict]:
     logger.info(f"Parsed file {file_path} into syntax tree")
     root_node = tree.root_node
 
+    file_imports = []
+    file_exports = []
     
-    chunk = []
-    walk(root_node, content, config["node_types"], chunk, language, file_path)
+    for child in root_node.children:
+        if child.type in config.get("import_types", []):
+            file_imports.append(content[child.start_byte:child.end_byte].strip())
+        if child.type in config.get("export_types", []):
+            file_exports.append(content[child.start_byte:child.end_byte].strip())   
+    
+    chunks = []
+    walk(root_node, content, config, chunks, language, file_path, parent_scope=file_path)
 
-    return chunk
+    return {
+        "metadata": {
+            "path": file_path,
+            "imports": file_imports,
+            "exports": file_exports,
+            "language": language
+        },
+        "chunks": chunks
+    }
 
 def parse_files(files: list[dict]) -> list[dict]:
     all_chunks = []
+    all_metadata = []
     for file in files:
-        chunks = extract_chunks(file["path"], file["content"], file["language"])
-        all_chunks.extend(chunks)
+        file_data = extract_chunks(file["path"], file["content"], file["language"])
+        all_chunks.extend(file_data.get("chunks"))
+        all_metadata.append(file_data.get("metadata"))
     logger.info(f"Extracted {len(all_chunks)} chunks from {len(files)} files")
-    return all_chunks
+    return {
+        "chunks": all_chunks,
+        "metadata": all_metadata
+    }
