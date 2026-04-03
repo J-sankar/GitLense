@@ -165,7 +165,7 @@ def extract_chunks(file_path:str, content:str, language:str)->dict:
         "chunks": chunks
     }
 
-def parse_files(files: list[dict]) -> list[dict]:
+def parse_files(files: list[dict]) -> dict:
     all_chunks = []
     all_metadata = []
     for file in files:

@@ -10,7 +10,8 @@ SUPPORTED_EXTENSIONS =  {
     ".js": "js",
     ".java": "java",
     ".ts": "ts",
-    ".go": "go"
+    ".go": "go",
+    ".html":"html"
 }
 
 

@@ -33,15 +33,17 @@ def store_embeddings_batch(repo_id: str, chunks: list[dict]) -> int:
 
     for i in range(0, len(chunks), batch_size) :
         batch = chunks[i:i+batch_size]
-        logger.info(f"Storing batch {batch_count}/{batch_length} ")
+        logger.info(f"-----Storing batch {batch_count}/{batch_length} ")
         points = [
             PointStruct(
                 id      = get_deterministic_id(filename=chunk["file"], code=chunk["code"]),
                 vector  = chunk["vector"],
                 payload = {
+                    "point_id": chunk["point_id"],
                     "name":       chunk["name"],
                     "file":       chunk["file"],
                     "language":   chunk["language"],
+                    "parent_scope": chunk["parent_scope"],
                     "type":       chunk["type"],
                     "start_line": chunk["start_line"],
                     "end_line":   chunk["end_line"],
