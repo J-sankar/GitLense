@@ -153,14 +153,51 @@ def extract_chunks(file_path:str, content:str, language:str)->dict:
             file_exports.append(content[child.start_byte:child.end_byte].strip())   
     
     chunks = []
-    walk(root_node, content, config, chunks, language, file_path, parent_scope=file_path)
 
+    walk(root_node, content, config, chunks, language, file_path, parent_scope=file_path)
+    global_nodes = [
+        child for child in root_node.children
+        if child.type not in config.get("node_types") and 
+        child.type not in config.get("parent_types", []) and     # 👈 EXCLUDE CLASSES/INTERFACES
+        child.type not in config.get("import_types", []) and
+        child.type not in config.get("export_types", []) and
+        child.type != "comment"
+    ]
+    if global_nodes:
+        global_code = "\n".join([content[n.start_byte:n.end_byte].strip() for n in global_nodes])
+        chunks.append({
+            "name": "module_scope",
+            "parent_scope": file_path, 
+            "code": global_code,
+            "language": language,
+            "file": file_path,
+            "type": "global_logic",
+            "start_line": global_nodes[0].start_point[0] + 1,
+            "end_line": global_nodes[-1].end_point[0] + 1
+        })
+    if not chunks and content.strip():
+        chunks.append({
+            "name": "global_scope",
+            "parent_scope": file_path,
+            "code": content,
+            "language": language,
+            "file": file_path,
+            "type": "module", 
+            "start_line": 1,
+            "end_line": len(content.splitlines())
+        })
+    skeleton_lines = [
+    chunk["code"].split('\n')[0].strip() 
+    for chunk in chunks 
+    if chunk["type"] in config.get("node_types", []) or chunk["type"] in config.get("parent_types", [])
+]
     return {
         "metadata": {
             "path": file_path,
             "imports": file_imports,
             "exports": file_exports,
-            "language": language
+            "language": language,
+            "skeleton": skeleton_lines
         },
         "chunks": chunks
     }
