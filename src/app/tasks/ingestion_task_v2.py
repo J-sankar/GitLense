@@ -1,50 +1,76 @@
 import asyncio
-
 from app.core.logger import get_logger
 from app.services.github_fetcher import fetch_repo_files
 from app.ingestion.processor import process_repository
 from app.models.db import Repo,Job
 from app.core.database import SessionLocal
+from uuid import UUID 
 
 logger = get_logger(__name__)
-async def test_run_ingestion():
+async def test_run_ingestion( job_id: str, repo_id: str):
     db = SessionLocal()
-    TEST_URL = "https://github.com/teamwhiplash/Emo-tunes"
+    repo = None
     try:
-        test_repo = db.query(Repo).filter(Repo.name == "teamwhiplash/Emo-tunes").first()
-        if not test_repo:
-            test_repo = Repo(name="teamwhiplash/Emo-tunes",repo_url=TEST_URL,status="queued")
-            db.add(test_repo)
-            db.flush()
+        repo = db.query(Repo).filter(Repo.id == UUID(repo_id)).first()
+        if not repo:
+            raise Exception("Repo not found")
         
+        job = db.query(Job).filter(Job.id == UUID(job_id)).first()
 
-        test_job = Job(
-            repo_id=test_repo.id,
-            status="queued",
-            progress=0
-        )
-        db.add(test_job)
+        if not job:
+            raise Exception("Job not found")
+
+        repo.status = "processing"
+        job.status = "processing"
+
+        db.add_all([repo,job])
         db.commit()
 
-        logger.info("created test repo and job")
-        files = await fetch_repo_files(TEST_URL)
+        files = await fetch_repo_files(repo.repo_url)
 
         logger.info("Processing repo...")
-        process_repository(db,str(test_repo.id), job_id=str(test_job.id), files=files)
-        db.refresh(test_repo)
-        db.refresh(test_job)
+        process_repository(db, repo=repo, job= job,files=files)
+       
+        repo.status = "completed"
+        repo.error_message = None
+        job.status = "finished"
+        job.error_message= ""
 
-        logger.info("\n--- TEST COMPLETE ---")
-        logger.info(f"Final Status: {test_repo.status}")
-        logger.info(f"Final Progress: {test_job.progress}%")
+        db.commit()
 
-        if test_repo.status == "completed":
-            logger.info("SUCCESS: Data is in Postgres and Qdrant.")
+        logger.info("\n--- INGESTION COMPLETE ---")
+        logger.info(f"Final Status: {repo.status}")
+        logger.info(f"Final Progress: {job.progress}%")
+
+        if repo.status == "completed":
+            logger.info("SUCCESS: INGESTION COMPLETE.")
         else:
-            logger.error(f"FAILED: {test_repo.error_message}")
+            logger.error(f"FAILED: {repo.error_message}")
 
     except Exception as e:
-        logger.error(f"CRITICAL ERROR: {e}")
+        db.rollback()
+        if repo is not None:
+            repo.status = "failed"
+            repo.error_message = "failed to ingest"
+        if job is not None:
+            job.status = "failed"
+            job.error_message = "failed"
+            db.commit()
+        else:
+            logger.warning("Could not update job status because job object is None")
+        
+        # If it's a "Job not found" error, maybe don't re-raise it 
+        # so RQ doesn't try to retry a non-existent job.
+        try:
+            if repo or job:
+                db.commit()
+        except Exception as commit_err:
+            logger.error(f"Failed to save 'failed' status to DB: {commit_err}")
+        if "Job not found" in str(e):
+            logger.warning(f"Aborting task: {e}. No retry will be attempted.")
+            return
+        
+        raise e 
     finally:
         db.close()
 

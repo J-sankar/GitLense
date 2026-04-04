@@ -1,29 +1,29 @@
 from sqlalchemy.orm import Session
 from typing import List
 from app.core.logger import get_logger
-from app.models.db import Job,FileMetaData
+from app.models.db import Job,FileMetaData, Repo
 from app.services.code_parser import parse_files
 from app.services.embedder import embed_batch
 from app.services.vector import store_embeddings_batch
 from app.services.file_metadata import upsert_file_metadata
 from app.utils.crypto import get_file_hash,get_deterministic_id
-from uuid import UUID
+
 import time
 
 logger = get_logger(__name__)
 MAX_ATTEMPTS  = 3
 WAIT_TIME = 60
 
-def process_repository(db:Session,repo_id:str, job_id:str, files: List[dict]) :
+def process_repository(db:Session, repo:Repo, job:Job, files: List[dict]) :
 
     total_files = len(files)
-    job = db.query(Job).filter(Job.id == UUID(job_id)).first()
+
 
     if not job:
-        logger.error(f"CRITICAL: Job {job_id} not found. Ingestion aborted.")
+        logger.error(f"CRITICAL: Job {str(job.id)} not found. Ingestion aborted.")
         return
     
-    logger.info(f"starting processor for job: {job_id[:8]} | total files found : {total_files}")
+    logger.info(f"starting processor for job: {str(job.id)[:8]} | total files found : {total_files}")
 
     for index, file in enumerate(files):
         content = file["content"]
@@ -31,7 +31,7 @@ def process_repository(db:Session,repo_id:str, job_id:str, files: List[dict]) :
         file_path = file["path"]
         file_summary = ""
 
-        existingFile = db.query(FileMetaData).filter(FileMetaData.file_path == file_path, FileMetaData.repo_id == UUID(repo_id)).first()
+        existingFile = db.query(FileMetaData).filter(FileMetaData.file_path == file_path, FileMetaData.repo_id == repo.id).first()
 
         if existingFile and existingFile.file_hash == file_hash and existingFile.status == "completed":
             logger.info(f"Skipping file : {file_path} | already processed")
@@ -43,6 +43,7 @@ def process_repository(db:Session,repo_id:str, job_id:str, files: List[dict]) :
         for attempt in range(MAX_ATTEMPTS):
 
             try:
+                
                 file_data = parse_files([file])
 
                 chunks = file_data["chunks"]
@@ -58,12 +59,13 @@ def process_repository(db:Session,repo_id:str, job_id:str, files: List[dict]) :
     
         
 
-                logger.info(f"-----obtained {len(chunks)} chunks from file")
+                logger.info(f"obtained {len(chunks)} chunks from file")
 
                 embedded_chunks  = embed_batch(chunks=chunks)
-                logger.info(f"-----embedded {len(chunks)} chunks from file")
-                stored_embeddings = store_embeddings_batch(repo_id=repo_id,chunks=embedded_chunks)
-                logger.info(f"-----stored {stored_embeddings} embeddings from file")
+                logger.info(f"embedded {len(chunks)} chunks from file")
+                stored_embeddings = store_embeddings_batch(repo_id=str(repo.id),chunks=embedded_chunks)
+            
+                logger.info(f"stored {stored_embeddings} embeddings from file")
 
                 success = True
                 break
@@ -82,7 +84,11 @@ def process_repository(db:Session,repo_id:str, job_id:str, files: List[dict]) :
                     raise e
         
         if success:
-            upsert_file_metadata(db=db,repo_id=UUID(repo_id),file_path=file_path, file_hash=file_hash,imports=metadata.get("imports", []), exports=metadata.get("exports", []), summary=file_summary)
+
+            upsert_file_metadata(db=db,repo_id=repo.id,file_path=file_path, file_hash=file_hash,imports=metadata.get("imports", []), exports=metadata.get("exports", []), summary=file_summary,skeleton=metadata.get("skeleton",[]))
+            repo.chunks_indexed += stored_embeddings
+            db.commit()
+            db.refresh(repo)
             _update_progress(db,job,index,total_files)
         else:
             raise Exception(f"failed to process {file_path} completely")
@@ -96,6 +102,7 @@ def _update_progress(db: Session, job: Job, current_index: int, total: int):
         if progress > job.progress:
             job.progress = progress
             db.commit()
+            db.refresh(job)
 
 
 
