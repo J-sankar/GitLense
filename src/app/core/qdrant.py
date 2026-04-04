@@ -10,14 +10,14 @@ def init_qdrant() -> QdrantClient | None:
         client = QdrantClient(
             url     = settings.QDRANT_URL,
             api_key = settings.QDRANT_API_KEY,
-            timeout = 60
+            timeout = 10
         )
         # ── verify connection ─────────────────────────
         client.get_collections()
-        logger.info("✅ Qdrant connected successfully")
+        logger.info("Qdrant connected successfully")
         return client
     except Exception as e:
-        logger.error(f"❌ Qdrant connection failed: {e}")
+        logger.error(f"Qdrant connection failed: {e}")
         return None
 
 
