@@ -4,10 +4,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from contextlib  import asynccontextmanager
 from app.core.database import engine, Base
-from app.api.routes.ingest import router as ingest_router
-from app.api.routes.query import router as query_router
-from app.api.routes.repo import router as repo_router
-from app.api.routes.auth import router as auth_router
+from app.api.v1.router import api_router as v1_router
 from app.core.limiter import limiter
 
 
@@ -38,10 +35,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-app.include_router(ingest_router)
-app.include_router(query_router)
-app.include_router(repo_router)
-app.include_router(auth_router)
+app.include_router(v1_router, prefix="/api/v1")
 
 @app.get("/health")
 def health():

@@ -2,7 +2,7 @@
 
 
 def test_register(client) :
-    response = client.post("/auth/v1/register",json={
+    response = client.post("/api/v1/auth/register",json={
         "username": "testuser",
         "email":"tester@example.com",
         "password":"random123"
@@ -15,7 +15,7 @@ def test_register(client) :
 
 
 def test_duplicate_username(client,test_user) :
-    response = client.post("/auth/v1/register",json={
+    response = client.post("/api/v1/auth/register",json={
         "username": "testuser",
         "email":"anothertester@example.com",
         "password":"random456"
@@ -24,7 +24,7 @@ def test_duplicate_username(client,test_user) :
 
 
 def test_duplicate_email(client, test_user):
-    response = client.post("/auth/v1/register",json={
+    response = client.post("/api/v1/auth/register",json={
         "username": "testuser",
         "email": test_user.email,
         "password":"random456"
@@ -33,7 +33,7 @@ def test_duplicate_email(client, test_user):
     
 
 def test_login(test_user,client):
-    response = client.post("/auth/v1/login",json={
+    response = client.post("/api/v1/auth/login",json={
         "email": test_user.email,
         "password": "test1234" ,
     })
@@ -45,7 +45,7 @@ def test_login(test_user,client):
 
 
 def test_wrong_password(test_user,client):
-    response = client.post("/auth/v1/login",json={
+    response = client.post("/api/v1/auth/login",json={
         "email": test_user.email,
         "password": "test12345" ,
     })
@@ -54,13 +54,13 @@ def test_wrong_password(test_user,client):
 
 
 def test_anauthorized_logout(test_user, client):
-    response = client.post("/auth/v1/logout")
+    response = client.post("/api/v1/auth/logout")
     assert response.status_code == 401
    
 
 
 def test_logout(test_user,client,auth_headers):
-    response = client.post("/auth/v1/logout",headers=auth_headers)
+    response = client.post("/api/v1/auth/logout",headers=auth_headers)
     assert response.status_code == 200
     assert response.cookies.get("refresh_token") is None
    
@@ -68,12 +68,12 @@ def test_logout(test_user,client,auth_headers):
 def test_token_refresh_flow(client, test_user):
     # 1. Login to get the initial cookie set by the server
     login_data = {"email": test_user.email, "password": "test1234"}
-    login_res = client.post("/auth/v1/login", json=login_data)
+    login_res = client.post("/api/v1/auth/login", json=login_data)
     assert login_res.status_code == 200
     
     old_access_token = login_res.json()["access_token"]
 
-    response = client.post("/auth/v1/refresh")
+    response = client.post("/api/v1/auth/refresh")
     
     assert response.status_code == 200
     data = response.json()

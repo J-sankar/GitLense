@@ -11,7 +11,7 @@ from app.core.config import settings
 import uuid
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/auth/v1", tags=["auth"])
+router = APIRouter()
 
 @router.post(path="/register",response_model=RegisterResponse,status_code=status.HTTP_201_CREATED)
 @limiter.limit("3/minute")

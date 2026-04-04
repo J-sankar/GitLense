@@ -13,3 +13,5 @@ wheels/
 .python-version
 
 
+.pytest_cache/
+.vscode/

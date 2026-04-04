@@ -10,7 +10,7 @@ from app.core.limiter import limiter
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix='/repos',tags=["Repos"])
+router = APIRouter()
 
 
 

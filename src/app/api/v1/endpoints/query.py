@@ -12,7 +12,7 @@ from app.core.limiter import limiter
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/query",tags=["query"])
+router = APIRouter()
 
 
 @router.post("", response_model=QueryResponse)
