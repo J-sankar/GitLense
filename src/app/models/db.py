@@ -119,6 +119,7 @@ class FileMetaData(Base):
     file_hash = Column(String(64), nullable=False)
     imports    = Column(JSONB, default=[]) 
     exports    = Column(JSONB, default=[])
+    skeleton   = Column(JSONB, default=[])
     summary  = Column(Text)
     status     = Column(String(20), default="pending")
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
