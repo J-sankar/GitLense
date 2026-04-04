@@ -9,7 +9,7 @@ from app.core.logger import get_logger
 logger = get_logger(__name__)
 
 
-def upsert_file_metadata(db: Session, repo_id: UUID, file_path: str, file_hash: str, imports: List[str], exports:List[str], summary: Optional[str] = None) ->None:
+def upsert_file_metadata(db: Session, repo_id: UUID, file_path: str, file_hash: str, imports: List[str], exports:List[str], summary: Optional[str] = None,skeleton=List[str]) ->None:
     try:
         stmnt = insert(FileMetaData).values(
             file_path = file_path,
@@ -18,6 +18,7 @@ def upsert_file_metadata(db: Session, repo_id: UUID, file_path: str, file_hash: 
             imports = imports,
             exports = exports,
             summary = summary,
+            skeleton = skeleton,
             status = "completed"
         )
 
@@ -28,6 +29,7 @@ def upsert_file_metadata(db: Session, repo_id: UUID, file_path: str, file_hash: 
                 "imports": imports,
                 "exports": exports,
                 "summary": summary,
+                "skeleton":skeleton,
                 "status": "completed",
                 "updated_at": func.now()
 
