@@ -5,6 +5,7 @@ from slowapi.errors import RateLimitExceeded
 from contextlib  import asynccontextmanager
 from app.core.database import engine, Base
 from app.api.v1.router import api_router as v1_router
+from app.api.v2.router import api_router as v2_router
 from app.core.limiter import limiter
 
 
@@ -36,6 +37,7 @@ app.add_middleware(
 )
 
 app.include_router(v1_router, prefix="/api/v1")
+app.include_router(v2_router, prefix="/api/v2")
 
 @app.get("/health")
 def health():
