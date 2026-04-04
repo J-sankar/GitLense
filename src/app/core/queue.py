@@ -1,4 +1,4 @@
-from app.core.redis import (small_queue, medium_queue, large_queue)
+from app.core.redis import (small_queue, medium_queue, large_queue,redis_conn)
 from app.core.logger import get_logger
 from app.services.github_fetcher import get_repo_size
 from rq import Queue, Retry
@@ -6,6 +6,9 @@ from sqlalchemy import  not_,select,and_
 from app.models.db import (Repo, Job)
 from app.core.database import SessionLocal
 from datetime import datetime ,timezone, timedelta
+
+from rq.job import Job as RQJob
+
 
 
 
@@ -31,13 +34,14 @@ def get_ingestion_queue(repo_url: str) -> Queue :
     
 
 def queue_ingestion(repo_url: str, job_id: str, repo_id: str) :
-    from app.tasks.ingest_task import run_ingestion
+    # from app.tasks.ingest_task import run_ingestion
+    from app.tasks.ingestion_task_v2 import test_run_ingestion
     queue = get_ingestion_queue(repo_url)
 
     if not queue:
         raise Exception("Queue Service Not Available")
     queue.enqueue(
-        run_ingestion, str(job_id),str(repo_id),
+        test_run_ingestion, str(job_id),str(repo_id),
         job_timeout = 600,
         retry = Retry(max=3, interval=[60,120,240])
     )
@@ -78,6 +82,12 @@ def recover_abandoned_jobs():
             job.status = "failed"
             repo.status = "failed"
             job.error_message = repo.error_message = "Failed to embed"
+
+            try:
+                rq_job = RQJob.fetch(job.id, connection=redis_conn)
+                rq_job.move_to_failed_queue() 
+            except Exception:
+                pass
         
         # One single commit for all changes
         db.commit()
@@ -88,3 +98,9 @@ def recover_abandoned_jobs():
         logger.error(f"Recovery failed: {e}")
     finally:
         db.close()
+
+if __name__ == "__main__":
+    from app.core.logger import get_logger
+    logger = get_logger(__name__)
+    logger.info("Starting manual job recovery...")
+    recover_abandoned_jobs()
