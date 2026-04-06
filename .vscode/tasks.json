@@ -1,0 +1,49 @@
+{
+    "version": "2.0.0",
+    "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+    },
+    "tasks": [
+        {
+            "label": "API: Start Server",
+            "type": "shell",
+            "command": "make server"
+        },
+        {
+            "label": "Worker: Small",
+            "type": "shell",
+            "command": "make worker-s"
+        },
+        {
+            "label": "Worker: Medium",
+            "type": "shell",
+            "command": "make worker-m"
+        },
+        {
+            "label": "Worker: Large",
+            "type": "shell",
+            "command": "make worker-l"
+        },
+        {
+            "label": "Full Start",
+            "dependsOrder": "parallel",
+            "dependsOn": [
+                "API: Start Server",
+                "Worker: Small",
+                "Worker: Medium",
+                "Worker: Large"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+
+        }
+
+    ]
+}
