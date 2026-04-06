@@ -1,5 +1,4 @@
 # tests/test_ingest.py
-import pytest
 from unittest.mock import patch
 
 
