@@ -23,3 +23,9 @@ stop:
 	-pkill -f uvicorn
 	-pkill -f worker.py
 	@echo "Cleaned."	
+
+
+reset-redis:
+	@echo "Flushing Redis queues..."
+	redis-cli flushall
+	@echo "Redis is clean."
