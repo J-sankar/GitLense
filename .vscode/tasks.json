@@ -42,8 +42,12 @@
                 "kind": "build",
                 "isDefault": true
             }
-
+        },
+        {
+            "label": "System: Kill All",
+            "type": "shell",
+            "command": "make stop && make reset-redis",
+            "problemMatcher": []
         }
-
     ]
 }
