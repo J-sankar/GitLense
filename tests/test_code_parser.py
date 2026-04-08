@@ -1,5 +1,6 @@
 import pytest
-from app.services.code_parser import extract_chunks
+# from app.services.code_parser import extract_chunks
+from app.parser.parser_manager import ParserManager
 
 @pytest.fixture
 def sample_python_code():
@@ -257,16 +258,28 @@ public class Song_meta {
 }
 """
 
+@pytest.fixture
+def sample_python_metadata():
+    return {
+
+    }
+
 
 def test_supported_python(sample_python_code):
-    result = extract_chunks(file_path="python/examples/api_discovery.py",content=sample_python_code,language="py")
+    parser_manager = ParserManager()
+    result = parser_manager.extract_chunks(file_path="python/examples/api_discovery.py",content=sample_python_code,language="py")
     chunks = result["chunks"]
     metadata = result["metadata"]
-    assert len(chunks) == 2
+    assert len(chunks) == 3
+
+    types = [c["type"] for c in chunks]
+    assert "function_definition" in types
+    assert "global_logic" in types
 
     assert metadata["path"] == "python/examples/api_discovery.py"
     assert metadata["language"] == "py"
-
+    print(f"skeleton: {metadata['skeleton']}")
+    assert metadata["skeleton"] == ['function_definition: def exec_commands(api_instance):,parent:python/examples/api_discovery.py', 'function_definition: def main():,parent:python/examples/api_discovery.py']
     assert "import time" in metadata["imports"]
     assert "from kubernetes import config" in metadata["imports"]
     assert len(metadata["imports"]) == 6
@@ -275,13 +288,12 @@ def test_supported_python(sample_python_code):
     assert "exec_commands" in extracted_names
     assert "main" in extracted_names
 
+   # In tests/test_code_parser.py
     for chunk in chunks:
-       
         assert chunk["parent_scope"] == "python/examples/api_discovery.py"
-        
-        
         assert chunk["language"] == "py"
-        assert chunk["type"] == "function_definition"
+        # Allow both function definitions and global logic
+        assert chunk["type"] in ["function_definition", "global_logic"]
         
     
     exec_chunk = next(c for c in chunks if c["name"] == "exec_commands")
@@ -297,26 +309,40 @@ def test_supported_python(sample_python_code):
 
 
 def test_supported_java_code(sample_java_code):
-    result = extract_chunks(file_path="src/main/java/org/tunes/controllers/Song_meta.java", content=sample_java_code,
-                            language="java")
+    parser_manager = ParserManager()
+    result = parser_manager.extract_chunks(file_path="src/main/java/org/tunes/controllers/Song_meta.java",content=sample_java_code,language="java")
+    print(f"\nEXTRACTED NAMES: {[c['name'] for c in result['chunks']]}")
     chunks = result["chunks"]
     metadata = result["metadata"]
 
-    assert len(chunks) == 3
+    # In tests/test_code_parser.py -> test_supported_java_code
+    extracted_names = [c["name"] for c in chunks]
+    assert "Song_meta" in extracted_names
+    assert "sendSongMeta" in extracted_names
+    assert "receiveEmotion" in extracted_names
 
     class_chunk = next(c for c in chunks if c["name"] == "Song_meta")
     assert class_chunk["type"] == "class_declaration"
     assert class_chunk["parent_scope"] == "src/main/java/org/tunes/controllers/Song_meta.java"
 
     for chunk in chunks :
+        print(f"chunk name : {chunk['name']} , parent_scope: {chunk['parent_scope']} ")
         assert chunk["language"] == "java"
 
-        if chunk != class_chunk:
+        if chunk != class_chunk and chunk["name"] != "module_scope":
             assert chunk["parent_scope"] == class_chunk["name"]
 
 
     assert len(metadata["imports"]) == 18
     assert metadata["exports"]== []
     assert metadata["path"] == "src/main/java/org/tunes/controllers/Song_meta.java"
+    expected_skeleton = ['class_declaration: public class Song_meta {,parent:src/main/java/org/tunes/controllers/Song_meta.java', 'method_declaration: public Mono<String> sendSongMeta(@RequestParam String query) {,parent:Song_meta', 'method_declaration: public ResponseEntity<String> receiveEmotion(@RequestBody songMetaDTO dto) {,parent:Song_meta']
+
+    print(f"skeletons : {result['metadata']['skeleton']}")
+    # Check if the signatures exist in the skeleton
+    for sig in expected_skeleton:
+        assert any(sig in s for s in result["metadata"]["skeleton"])
+    
+    assert metadata["skeleton"] == expected_skeleton
       
 
