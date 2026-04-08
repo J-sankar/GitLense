@@ -34,7 +34,7 @@ class JavaParser(BaseParser):
                         signature = line.strip()
                         break
 
-                line = f"{chunk['type']}: {signature}"
+                line = f"{chunk['type']}: {signature},parent:{chunk['parent_scope']}"
                 skeleton_lines.append(line)
         return skeleton_lines
     
