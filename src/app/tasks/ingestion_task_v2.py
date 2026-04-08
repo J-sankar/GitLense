@@ -10,6 +10,7 @@ logger = get_logger(__name__)
 async def test_run_ingestion( job_id: str, repo_id: str):
     db = SessionLocal()
     repo = None
+    job = None
     try:
         repo = db.query(Repo).filter(Repo.id == UUID(repo_id)).first()
         if not repo:
@@ -66,7 +67,10 @@ async def test_run_ingestion( job_id: str, repo_id: str):
                 db.commit()
         except Exception as commit_err:
             logger.error(f"Failed to save 'failed' status to DB: {commit_err}")
-        if "Job not found" in str(e):
+        if "job not found" in str(e).lower():
+            logger.warning(f"Aborting task: {e}. No retry will be attempted.")
+            return
+        if "repo not found" in str(e).lower():
             logger.warning(f"Aborting task: {e}. No retry will be attempted.")
             return
         
