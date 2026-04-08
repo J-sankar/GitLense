@@ -23,6 +23,61 @@ class BaseParser(ABC):
     def extract_name(self,node:Node, content_bytes:str)->str:
         pass
 
+    def get_file_imports_exports(self,root_node:Node,content: str)->dict :
+        import_types = self.config.get("import_types", [])
+        export_types = self.config.get("export_types",[])
+        file_imports = []
+        file_exports = []
+
+        for child in root_node.children:
+            if child.type in import_types:
+                file_imports.append(content[child.start_byte : child.end_byte].strip())
+            if child.type in export_types:
+                file_exports.append(content[child.start_byte : child.end_byte].strip())
+        return {
+            "file_imports" : file_imports,
+            "file_exports" : file_exports
+        }
+    
+
+    def get_global_chunks(self, root_node: Node,file_path: str, content: str, language: str) -> List[dict] :
+        config = self.config
+        chunks = []
+        global_nodes = [
+            child
+            for child in root_node.children
+            if child.type not in config.get("node_types")
+            and child.type
+            not in config.get("parent_types", [])  # 👈 EXCLUDE CLASSES/INTERFACES
+            and child.type not in config.get("import_types", [])
+            and child.type not in config.get("export_types", [])
+            and child.type != "comment"
+        ]
+
+        if global_nodes:
+            global_code = "\n".join(
+                [content[n.start_byte : n.end_byte].strip() for n in global_nodes]
+            )
+            chunks.append(
+                {
+                    "name": "module_scope",
+                    "parent_scope": file_path,
+                    "code": global_code,
+                    "language": language,
+                    "file": file_path,
+                    "type": "global_logic",
+                    "start_line": global_nodes[0].start_point[0] + 1,
+                    "end_line": global_nodes[-1].end_point[0] + 1,
+                }
+            )
+
+     
+        return chunks
+    @abstractmethod
+    def get_skeleton_lines(self, chunks:List[dict]) -> List[str] :
+        pass
+
+
 
     def walk(self,node:Node, content_bytes:str, chunks:list[dict], language:str, path:str,parent_scope:str)->None:
         
