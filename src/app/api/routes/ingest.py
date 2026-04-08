@@ -17,7 +17,7 @@ import json
 
 logger = get_logger(__name__)
 
-router = APIRouter(prefix="/ingest", tags=["ingestion"])
+router = APIRouter(prefix="/api/v1/ingest", tags=["ingestion"])
 
 def ensure_job_queued(job: Job, repo: Repo, user_id: str, db: Session):
     """
