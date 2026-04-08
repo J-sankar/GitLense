@@ -1,0 +1,92 @@
+services:
+  api:
+    build: .
+    image: gitlense:latest
+    working_dir: /app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "80:8000"
+    env_file:
+      - .env.docker
+    environment:
+      - PYTHONPATH=/app/src
+    restart: always
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  migration_runner:
+    image: gitlense:latest
+    working_dir: /app
+    command: alembic upgrade head
+    env_file: .env.docker
+    restart: "no"
+    profiles: ["tools"]
+
+  worker_small:
+    image: gitlense:latest
+    working_dir: /app
+    command: python worker.py small
+    env_file:
+      - .env.docker
+    restart: always
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  worker_medium:
+    image: gitlense:latest
+    working_dir: /app
+    command: python worker.py medium
+    env_file:
+      - .env.docker
+    restart: always
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  worker_larger:
+    image: gitlense:latest
+    working_dir: /app
+    command: python worker.py large
+    env_file:
+      - .env.docker
+    restart: always
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --maxmemory 200mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+volumes:
+  redis_data:
