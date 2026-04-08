@@ -1,11 +1,12 @@
 from tree_sitter import Language, Parser
 import tree_sitter_python as tsPython
+import tree_sitter_java as tsJava
 import tree_sitter_javascript as tsJavascript
 import tree_sitter_typescript as tsTypescript
-import tree_sitter_java as tsJava
 import tree_sitter_html as tsHtml
 import tree_sitter_c as tsC
 import tree_sitter_go as tsGo
+
 
 from app.core.logger import get_logger
 
@@ -79,23 +80,32 @@ LANGUAGE_CONFIG = {
     }
 }
 
-def extract_name(node, contents:str)->str:
+def extract_name(node, contents: str) -> str:
+    name_node = node.child_by_field_name('name')
+    if name_node:
+        return contents[name_node.start_byte:name_node.end_byte].strip()
+    
     for child in node.children:
+        # SKIP modifiers (where @RequestBody and 'public' live)
+        if child.type == "modifiers":
+            continue
+        # SKIP formal_parameters (where the variables inside ( ) live)
+        if child.type == "formal_parameters":
+            continue
+            
         if child.type == "identifier":
-            return contents[child.start_byte:child.end_byte]
+            return contents[child.start_byte:child.end_byte].strip()
+        
 
-    # ── Go methods (func (s *Server) Start()) ────────────────
-    for child in node.children:
-        if child.type == "field_identifier":
-            return contents[child.start_byte:child.end_byte]
-
-    # ── JS/TS arrow + named function expressions ─────────────
     if node.type in ("arrow_function", "function") and node.parent:
         if node.parent.type == "variable_declarator":
-            for child in node.parent.children:
-                if child.type == "identifier":
-                    return contents[child.start_byte:child.end_byte]
-    
+            for c in node.parent.children:
+                if c.type == "identifier":
+                    return contents[c.start_byte:c.end_byte].strip()
+
+    for child in node.children:
+        if child.type == "identifier":
+            return contents[child.start_byte:child.end_byte].strip()
 
     return "anonymous"
 
@@ -134,6 +144,8 @@ def walk(node, content:str, config:dict, chunks:list[dict], language:str, path:s
 
 def extract_chunks(file_path:str, content:str, language:str)->dict:
     config  = LANGUAGE_CONFIG.get(language)
+
+    
 
     if not config:
         logger.warning(f"Language '{language}' not supported, skipping {file_path}")
@@ -186,11 +198,12 @@ def extract_chunks(file_path:str, content:str, language:str)->dict:
             "start_line": 1,
             "end_line": len(content.splitlines())
         })
-    skeleton_lines = [
-    chunk["code"].split('\n')[0].strip() 
-    for chunk in chunks 
-    if chunk["type"] in config.get("node_types", []) or chunk["type"] in config.get("parent_types", [])
-]
+    skeleton_lines = []
+    for chunk in chunks:
+        if chunk["type"] in config.get("node_types", []) or chunk["type"] in config.get("parent_types", []):
+ 
+            line = f"{chunk['type']}: {chunk['name']}"
+            skeleton_lines.append(line)
     return {
         "metadata": {
             "path": file_path,
