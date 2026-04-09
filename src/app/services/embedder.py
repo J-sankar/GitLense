@@ -53,9 +53,8 @@ if settings.EMBEDDING_PROVIDER == "voyage":
 
 elif settings.EMBEDDING_PROVIDER == "gemini":
     # import google.generativeai as genai
-    from app.core.gemini import get_gemini_client
+    from app.core.gemini import gemini_client as client
 
-    client = get_gemini_client
 
 
     def _embed_documents(texts: list[str]) -> list[list[float]]:
