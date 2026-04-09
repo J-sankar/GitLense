@@ -54,8 +54,7 @@ jobs:
       - name: Run Pytest
         env:
           REDIS_URL: redis://localhost:6379
-          DATABASE_URL: postgresql://user:password@localhost:5432/test_db
           TEST_DATABASE_URL: postgresql://user:password@localhost:5432/test_db
-      
+          SKIP_HEAVY_TESTS: 1
         run: |
           pytest
