@@ -14,3 +14,10 @@ wheels/
 .python-version
 
 
+.pytest_cache/
+.vscode/*
+
+!.vscode/tasks.json
+
+# Personal usage
+milestone.txt 
