@@ -7,17 +7,24 @@ from app.services.embedder import embed_batch
 from app.services.vector import store_embeddings_batch
 from app.services.file_metadata import upsert_file_metadata
 from app.utils.crypto import get_file_hash,get_deterministic_id
-
+from app.services.summarizer import Summarizer
 import time
 
 logger = get_logger(__name__)
 MAX_ATTEMPTS  = 3
 WAIT_TIME = 60
+summarizer = Summarizer()
 
-def process_repository(db:Session, repo:Repo, job:Job, files: List[dict]) :
+async def process_repository(db:Session, repo:Repo, job:Job, files: List[dict]) :
 
     total_files = len(files)
 
+    db.refresh(repo)
+    db.refresh(job)
+
+    if repo.status == "completed":
+        logger.info("Repo ingestion complete, exiting...")
+        return 
 
     if not job:
         logger.error(f"CRITICAL: Job {str(job.id)} not found. Ingestion aborted.")
@@ -51,7 +58,7 @@ def process_repository(db:Session, repo:Repo, job:Job, files: List[dict]) :
                 metadata = metadata_list[0] if metadata_list else {}
 
                 if metadata: 
-                    file_summary = _generate_summary(metadata=metadata)
+                    file_summary = await _generate_summary(metadata=metadata)
 
                 if chunks:
                     for chunk in chunks:
@@ -109,8 +116,14 @@ def _update_progress(db: Session, job: Job, current_index: int, total: int):
 
 
 
-def _generate_summary(metadata:dict):
-    return f"""this is a code with import statements {metadata.get("imports",[])}, and file {metadata["path"]}"""
+async def _generate_summary(metadata:dict):
+    
+    try:
+        summary = await summarizer.summarize_file(metadata=metadata)
+        return summary
+    except Exception as e :
+        logger.error(f"Failed to generate summary for {metadata.get('path')}: {str(e).lower()}")
+        return "Summary unavailable"
 
 
 
