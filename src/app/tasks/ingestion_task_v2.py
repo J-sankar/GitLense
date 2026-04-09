@@ -30,7 +30,7 @@ async def test_run_ingestion( job_id: str, repo_id: str):
         files = await fetch_repo_files(repo.repo_url)
 
         logger.info("Processing repo...")
-        process_repository(db, repo=repo, job= job,files=files)
+        await process_repository(db, repo=repo, job= job,files=files)
        
         repo.status = "completed"
         repo.error_message = None
