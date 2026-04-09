@@ -10,7 +10,6 @@ class Settings(BaseSettings):
     
     
     DATABASE_URL: str = "postgresql://user:password@localhost:5432/db"
-    TEST_DATABASE_URL: str = "postgresql://user:password@localhost:5432/test_db"
     
     
     EMBEDDING_PROVIDER: str = "gemini" 
