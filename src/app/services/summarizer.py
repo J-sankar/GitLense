@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 
 
 class Summarizer:
-    def __init__(self, model_id: str = "gemini-2.5-flash"):
+    def __init__(self, model_id: str = "gemini-2.5-flash-lite"):
         self.client = client
         self.model_id = model_id
 
