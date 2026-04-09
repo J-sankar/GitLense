@@ -3,16 +3,15 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.core.database import Base
-from app.core.config import settings
 from app.core.security import create_access_token, hash_password
 from app.models.db import User, Repo, Job, UserRepo
 from fastapi.testclient import TestClient
 from main import app
 from app.core.database import get_db
 import uuid
-
+import os
 # ── test DB ───────────────────────────────────────
-TEST_DB_URL = settings.TEST_DATABASE_URL
+TEST_DB_URL = os.getenv("TEST_DATABASE_URL")
 
 engine      = create_engine(TEST_DB_URL)
 TestSession = sessionmaker(bind=engine, autocommit=False, autoflush=False)
