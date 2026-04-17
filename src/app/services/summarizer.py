@@ -30,7 +30,8 @@ class Summarizer:
         skeleton = "\n".join(line for line in metadata["skeleton"])
         prompt = f"""
     You are an expert code summarizer. You will be provided a file name of a codebase and its header statements like import, export and a skeleton of the file. The skeleton contains the function or class declarations in the file along with type.
-    You have to summarize the primary purpose of the file based on its structure 
+    Task: Based on the file metadata create a high level summary for the file. It should be understandable.
+    Constraints: Maximum sentences to be used - 4. always give meaningfull sentences. 
 
     file_name: {metadata.get("path", [])}
     import statements: {metadata.get("imports", [])}

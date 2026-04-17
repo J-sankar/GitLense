@@ -49,33 +49,45 @@ async def test_run_ingestion( job_id: str, repo_id: str):
             logger.error(f"FAILED: {repo.error_message}")
 
     except Exception as e:
-        db.rollback()
-        if repo is not None:
-            repo.status = "failed"
-            repo.error_message = "failed to ingest"
-        if job is not None:
-            job.status = "failed"
-            job.error_message = "failed"
-            db.commit()
-        else:
-            logger.warning("Could not update job status because job object is None")
-        
-        # If it's a "Job not found" error, maybe don't re-raise it 
-        # so RQ doesn't try to retry a non-existent job.
+        error_msg = str(e).lower()
+        logger.error(f"Ingestion Task Failed: {error_msg}")
+
+        # 1. CRITICAL: Rollback the poisoned transaction
         try:
-            if repo or job:
-                db.commit()
-        except Exception as commit_err:
-            logger.error(f"Failed to save 'failed' status to DB: {commit_err}")
-        if "job not found" in str(e).lower():
-            logger.warning(f"Aborting task: {e}. No retry will be attempted.")
-            return
-        if "repo not found" in str(e).lower():
-            logger.warning(f"Aborting task: {e}. No retry will be attempted.")
-            return
+            db.rollback() 
+        except Exception as rb_err:
+            logger.error(f"Rollback failed: {rb_err}")
+
+        # 2. Update status safely
+        if repo:
+            repo.status = "failed"
+            # It's better to store the actual error so you can see it in the UI
+            repo.error_message = f"Ingestion failed: {error_msg[:100]}" 
         
-        raise e 
+        if job:
+            job.status = "failed"
+            job.error_message = error_msg
+        
+        # 3. Final attempt to save the failure status
+        try:
+            db.commit()
+        except Exception as commit_err:
+            logger.error(f"Final status commit failed: {commit_err}")
+
+        # 4. Filtered Re-raising
+        if "quota" in str(e).lower() or "429" in str(e).lower():
+            logger.error("Quota hit. Stopping job without retry.")
+            # By NOT raising, RQ treats this as 'Done'
+            return
+        if any(stop_word in error_msg for stop_word in ["job not found", "repo not found"]):
+            logger.warning("Aborting task permanently: Resource not found.")
+            return
+
+        # Re-raise for RQ to handle retries if configured
+        raise Exception(f"INGESTION FAILED: {error_msg}")
+
     finally:
+        # 5. Always close, but make sure the session is valid
         db.close()
 
 

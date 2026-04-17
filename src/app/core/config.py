@@ -9,9 +9,7 @@ class Settings(BaseSettings):
     GITHUB_TOKEN: str = "placeholder_token"
     
     
-    DATABASE_URL: str = "postgresql://user:password@localhost:5432/db"
-    
-    
+    DATABASE_URL: str
     EMBEDDING_PROVIDER: str = "gemini" 
     GEMINI_API_KEY: str = "placeholder_key"
     GROQ_API_KEY: str = "placeholder_key"

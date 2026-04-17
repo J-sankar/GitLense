@@ -1,12 +1,12 @@
 from app.core.config import settings
 from app.core.logger import get_logger
 from app.core.redis import redis_conn
-
+import math
 from app.utils.text import build_embed_text
 import time
 import json
-
-import math
+from tenacity import retry, retry_if_exception_type,after_log,wait_exponential_jitter,stop_after_attempt
+import logging
 logger = get_logger(__name__)
 
 MAX_ATTEMPTS = 3
@@ -54,11 +54,17 @@ if settings.EMBEDDING_PROVIDER == "voyage":
 elif settings.EMBEDDING_PROVIDER == "gemini":
     # import google.generativeai as genai
     from app.core.gemini import gemini_client as client
+    from google.genai.errors import ServerError,APIError
 
-
-
+    @retry(
+            stop=stop_after_attempt(3),
+            wait=wait_exponential_jitter(initial=1, max=10),
+            retry=retry_if_exception_type((APIError, ServerError)),
+            after=after_log(logger=logger, log_level=logging.WARNING),
+            reraise=True
+    )
     def _embed_documents(texts: list[str]) -> list[list[float]]:
-        try:
+    
             response = client.models.embed_content(
                 model="gemini-embedding-001",
                 contents=texts,
@@ -66,9 +72,7 @@ elif settings.EMBEDDING_PROVIDER == "gemini":
                   "task_type":"RETRIEVAL_DOCUMENT"
                 })
             return [item.values for item in response.embeddings]
-        except Exception as e :
-            logger.error(str(e))
-            raise Exception(f"Error: {str(e)}")
+    
     
     def _embed_query(text: str) -> list[float]:
         try:
@@ -94,7 +98,7 @@ else:
 def embed_chunks(chunks: list[dict], job_id :str = None) -> list[dict]:
     embedded_chunks = []
     batch_size = 10
-    batch_count = 1
+    batch_count = math.floor(len(chunks)/batch_size)
 
     if job_id:
         saved = load_progress(job_id)
@@ -155,13 +159,24 @@ def embed_chunks(chunks: list[dict], job_id :str = None) -> list[dict]:
 
 def embed_batch(chunks: list[dict]) -> list[dict]:
     embedded_chunks = []
-    texts  = [build_embed_text(chunk) for chunk in chunks]
-    vectors = _embed_documents(texts)
-    for i, chunk in enumerate(chunks):
-        embedded_chunks.append({
-                        **chunk,
-                        "vector": vectors[i]
-                    })
+    BATCH_SIZE = 100
+    total_batches = math.ceil(len(chunks)/BATCH_SIZE)
+    logger.info(f"Embedding batch count: {total_batches} ")
+    for i in range (0, len(chunks), BATCH_SIZE) :
+        current_batch = (i // BATCH_SIZE) + 1
+        batch = chunks[i:i+BATCH_SIZE]
+        texts  = [build_embed_text(chunk) for chunk in batch]
+        try:
+            vectors = _embed_documents(texts)
+            for j, chunk in enumerate(batch):
+                embedded_chunks.append({
+                                **chunk,
+                                "vector": vectors[j]
+                            })
+            logger.info(f"Embedded batch: {current_batch}/{total_batches}")
+        except Exception as e:
+            logger.error(f"Failed to embed batch: {str(e).lower()} ")
+            raise e
     return embedded_chunks
 
 

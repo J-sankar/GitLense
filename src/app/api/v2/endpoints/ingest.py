@@ -50,9 +50,7 @@ def ingest_repo(
             return IngestResponse(job_id=job.id, repo_id=repo.id, status=repo.status, message="New job scheduled for ingestion")
         
         logger.info(f"Repo already exists: {existing_repo.name}")
-        latest_job = db.query(Job).filter(
-            Job.repo_id == existing_repo.id
-        ).order_by(Job.started_at.desc()).first()
+        
 
         already_linked = db.query(UserRepo).filter(UserRepo.user_id== user_id, UserRepo.repo_id == existing_repo.id).first()
 
@@ -65,6 +63,10 @@ def ingest_repo(
         
         logger.info(f"user {str(user_id)[:8]} already linked to repo {str(existing_repo.id)[:8]}")
         if existing_repo.status in ("queued", "processing","completed"):
+            logger.debug(f"Repo status: {existing_repo.status}")
+            latest_job = db.query(Job).filter(
+            Job.repo_id == existing_repo.id
+        ).order_by(Job.started_at.desc()).first()
             return IngestResponse(
                 job_id=latest_job.id if latest_job else None,
                 repo_id=existing_repo.id,

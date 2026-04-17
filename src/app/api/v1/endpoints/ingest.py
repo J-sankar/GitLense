@@ -154,6 +154,8 @@ async def stream_job_status(
             try:
                 job = db.query(Job).filter(Job.id == uuid.UUID(job_id)).first()
 
+                if job:
+                    db.refresh(job)
                 if not job:
                     logger.error(f"ERROR: Job id {job_id} not found")
                     yield {

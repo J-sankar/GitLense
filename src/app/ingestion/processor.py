@@ -8,11 +8,12 @@ from app.services.vector import store_embeddings_batch
 from app.services.file_metadata import upsert_file_metadata
 from app.utils.crypto import get_file_hash,get_deterministic_id
 from app.services.summarizer import Summarizer
+from app.parser.parser_manager import ParserManager
 import time
 
 logger = get_logger(__name__)
 MAX_ATTEMPTS  = 3
-WAIT_TIME = 60
+WAIT_TIME = 10
 summarizer = Summarizer()
 
 async def process_repository(db:Session, repo:Repo, job:Job, files: List[dict]) :
@@ -36,6 +37,7 @@ async def process_repository(db:Session, repo:Repo, job:Job, files: List[dict]) 
         content = file["content"]
         file_hash = get_file_hash(content)
         file_path = file["path"]
+        language = file["language"]
         file_summary = ""
 
         existingFile = db.query(FileMetaData).filter(FileMetaData.file_path == file_path, FileMetaData.repo_id == repo.id).first()
@@ -46,16 +48,18 @@ async def process_repository(db:Session, repo:Repo, job:Job, files: List[dict]) 
             continue 
 
         logger.info(f"Processing file: {file_path}")
-        success = False
-        for attempt in range(MAX_ATTEMPTS):
 
-            try:
+        
+
+        try:
+                parser = ParserManager()
+
+                file_data =parser.extract_chunks(file_path=file_path,content=content,language=language)
                 
-                file_data = parse_files([file])
 
                 chunks = file_data["chunks"]
-                metadata_list = file_data.get("metadata", [])
-                metadata = metadata_list[0] if metadata_list else {}
+                metadata = file_data.get("metadata", [])
+                
 
                 if metadata: 
                     file_summary = await _generate_summary(metadata=metadata)
@@ -74,31 +78,22 @@ async def process_repository(db:Session, repo:Repo, job:Job, files: List[dict]) 
             
                 logger.info(f"stored {stored_embeddings} embeddings from file")
 
-                success = True
-                break
-            except Exception as e:
-                error_msg = str(e).lower()
+                upsert_file_metadata(db=db,repo_id=repo.id,file_path=file_path, file_hash=file_hash,imports=metadata.get("imports", []), exports=metadata.get("exports", []), summary=file_summary,skeleton=metadata.get("skeleton",[]))
+                repo.chunks_indexed += stored_embeddings
+                db.commit()
+                db.refresh(repo)
+                _update_progress(db,job,index,total_files)
 
-                if "rate limit" in error_msg or "429" in error_msg or "quota" in error_msg:
-                    logger.warning(f"Rate limit hit on {file_path} (Attempt {attempt + 1}/{MAX_ATTEMPTS})")
-                    
-                    if attempt < MAX_ATTEMPTS - 1:
-                        time.sleep(WAIT_TIME)
-                        continue
-                    else:
-                        raise Exception(f"Rate limit exceeded after {MAX_ATTEMPTS} attempts on file: {file_path}")
-                else:
-                    raise e
-        
-        if success:
+        except Exception as e:
+            # If we are here, it means the modular retries (MAX_ATTEMPTS) failed.
+                error_msg = f"Failed to process {file_path}: {str(e)}"
+                logger.error(error_msg)
+                
+                # Update job status so the UI knows it 
+                job.error_message = error_msg
+                db.commit()
+                raise Exception(error_msg)
 
-            upsert_file_metadata(db=db,repo_id=repo.id,file_path=file_path, file_hash=file_hash,imports=metadata.get("imports", []), exports=metadata.get("exports", []), summary=file_summary,skeleton=metadata.get("skeleton",[]))
-            repo.chunks_indexed += stored_embeddings
-            db.commit()
-            db.refresh(repo)
-            _update_progress(db,job,index,total_files)
-        else:
-            raise Exception(f"failed to process {file_path} completely")
 
 
 
