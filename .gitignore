@@ -20,3 +20,4 @@ wheels/
 !.vscode/tasks.json
 
 milestone.txt 
+deploy.sh
