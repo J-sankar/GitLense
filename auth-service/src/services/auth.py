@@ -44,6 +44,7 @@ async def register_user(
             password_hash = hash_password(password)
         )
         db.add(user)
+        await db.commit()
         await db.flush()
         await db.refresh(user)
         return user
