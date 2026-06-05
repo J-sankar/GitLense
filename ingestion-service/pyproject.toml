@@ -1,5 +1,5 @@
 [project]
-name = "auth-service"
+name = "ingestion-service"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -19,7 +19,21 @@ dependencies = [
     "httpx>=0.28.1",
     "pytest-asyncio>=1.3.0",
     "bcrypt>=4.0.1",
+    "tree-sitter>=0.25.2",
+    "tree-sitter-python>=0.25.0",
+    "tree-sitter-java>=0.23.5",
+    "tree-sitter-javascript>=0.25.0",
+    "tree-sitter-html>=0.23.2",
+    "tree-sitter-go>=0.25.0",
+    "tree-sitter-c>=0.24.2",
+    "tree-sitter-typescript>=0.23.2",
+    "githubkit>=0.15.5",
+    "tenacity>=9.1.4",
     "alembic>=1.18.4",
+    "pytest-mock>=3.15.1",
+    "qdrant-client>=1.18.0",
+    "google-genai>=2.7.0",
+    "sse-starlette>=3.4.4",
 ]
 [tool.uv]
 package = true
@@ -28,3 +42,4 @@ package = true
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
+
