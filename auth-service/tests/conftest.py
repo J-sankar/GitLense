@@ -2,10 +2,12 @@
 import os
 import uuid
 import pytest
+import pytest_asyncio
 import asyncio
 from typing import AsyncGenerator
 from unittest.mock import AsyncMock
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
 from src.core.database import Base, get_db
@@ -15,7 +17,7 @@ from src.core.redis import redis_manager
 from main import app
 
 TEST_DB_URL = os.getenv("TEST_DATABASE_URL")
-
+# engine = create_async_engine(TEST_DB_URL, echo=False)
 # --- REMOVE any global engine or TestSession variables from here ---
 
 @pytest.fixture(scope="session")
@@ -26,10 +28,9 @@ def event_loop():
     yield loop
     loop.close()
 
-
-@pytest.fixture(scope="session")
-async def test_engine(event_loop):
-    """Creates the async engine strictly inside the active test loop context"""
+@pytest_asyncio.fixture(scope="session")
+async def test_engine():
+    """Creates the engine and tables ONCE for the whole test run"""
     engine = create_async_engine(TEST_DB_URL, echo=False)
     
     async with engine.begin() as conn:
@@ -42,32 +43,52 @@ async def test_engine(event_loop):
     await engine.dispose()
 
 
-@pytest.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function")
 async def db(test_engine) -> AsyncGenerator[AsyncSession, None]:
-    """Provides a completely isolated, savepoint-backed transactional session per test function"""
-    local_sessionmaker = async_sessionmaker(
-        bind=test_engine, class_=AsyncSession, expire_on_commit=False
-    )
-    
-    # 1. Spin up a fresh session instance
-    async with local_sessionmaker() as session:
-        # 2. Start a real root transaction (we don't use 'async with' here to prevent auto-committing)
-        await session.begin()
+    """
+    Creates a pristine, isolated database transaction for EVERY test.
+    Intercepts app commits so they don't hit the real database, 
+    and rolls everything back when the test finishes.
+    """
+    async with test_engine.connect() as conn:
+        await conn.begin()
+        await conn.begin_nested()
         
-        # 3. Create a nested SAVEPOINT transaction strictly local to this test function
-        nested_trans = await session.begin_nested()
-        
+        session = AsyncSession(bind=conn, expire_on_commit=False)
+
+        # THIS IS THE MAGIC: It intercepts the application's db.commit() 
+        # and turns it into a savepoint instead of a real commit.
+        @event.listens_for(session.sync_session, "after_transaction_end")
+        def restart_savepoint(sync_session, trans):
+            if conn.closed:
+                return
+            if not conn.in_nested_transaction():
+                conn.sync_connection.begin_nested()
+
         yield session
-        
-        if nested_trans.is_active:
-            await nested_trans.rollback()
-            
-        # 4. Clean out the underlying connection roots safely 🔄
-        if session.in_transaction():
-            await session.rollback()
-        
-        # 6. Close the session explicitly to return the channel to the pool cleanly
+
         await session.close()
+        await conn.rollback()
+
+
+@pytest_asyncio.fixture(scope="function")
+async def db_session():
+    async with engine.connect() as connection:
+        transaction = await connection.begin()
+        await connection.begin_nested()
+        session = AsyncSession(bind=connection,expire_on_commit=False )
+
+
+        # @event.listens_for(session.sync_session, "after_transaction_end")
+        # def restart_savepoint(sync_session, trans):
+        #     if connection.closed:
+        #         return
+        #     if not connection.in_nested_transaction():
+        #         connection.sync_connection.begin_nested()
+        yield session
+
+        await session.close()
+        await transaction.rollback()
 
 @pytest.fixture(scope="function")
 async def client(db: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
