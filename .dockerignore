@@ -39,3 +39,8 @@ temp/
 extracted/
 *.zip
 *.tar.gz
+tests/
+
+deploy.sh
+agents/
+tools/

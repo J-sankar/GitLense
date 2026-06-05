@@ -58,7 +58,7 @@ elif settings.EMBEDDING_PROVIDER == "gemini":
 
     @retry(
             stop=stop_after_attempt(3),
-            wait=wait_exponential_jitter(initial=1, max=10),
+            wait=wait_exponential_jitter(initial=20, max=60),
             retry=retry_if_exception_type((APIError, ServerError)),
             after=after_log(logger=logger, log_level=logging.WARNING),
             reraise=True
