@@ -1,0 +1,53 @@
+{
+    "version": "2.0.0",
+    "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "clear": true
+    },
+    "tasks": [
+        {
+            "label": "API: Start Server",
+            "type": "shell",
+            "command": "make server"
+        },
+        {
+            "label": "Worker: Repo Fetch",
+            "type": "shell",
+            "command": "make worker-repo-fetch"
+        },
+        {
+            "label": "Worker: File Process",
+            "type": "shell",
+            "command": "make worker-file-process"
+        },
+        {
+            "label": "Worker: File Store",
+            "type": "shell",
+            "command": "make worker-file-store"
+        },
+        {
+            "label": "Full Start",
+            "dependsOrder": "parallel",
+            "dependsOn": [
+                "API: Start Server",
+                "Worker: Repo Fetch",
+                "Worker: File Process",
+                "Worker: File Store"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "System: Kill All",
+            "type": "shell",
+            "command": "make stop && make reset-redis",
+            "problemMatcher": []
+        }
+    ]
+}
