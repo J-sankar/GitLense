@@ -1,6 +1,6 @@
 import pytest
 # from app.services.code_parser import extract_chunks
-from app.parser.parser_manager import ParserManager
+from src.parser.parser_manager import ParserManager
 
 @pytest.fixture
 def sample_python_code():

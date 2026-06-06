@@ -1,6 +1,6 @@
 import pytest
 import os
-from app.ingestion.processor import _generate_summary
+from src.ingestion.processor import _generate_summary
 # from app.services.summarizer import Summarizer
 
 

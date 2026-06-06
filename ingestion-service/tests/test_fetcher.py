@@ -19,7 +19,9 @@ def force_db(mocker, db_session):
 async def test_success_path(mocker, db_session, test_repo, test_job):
     mock_publish = mocker.patch("src.workers.repo_fetch.redis_manager.publish")
     mock_ack = mocker.patch("src.workers.repo_fetch.redis_manager.ack")
-
+    mock_init = mocker.patch("src.workers.repo_fetch.init_progress")
+    mock_increment_fetch = mocker.patch("src.workers.repo_fetch.increment_fetch")
+    mock_flush_to_db = mocker.patch("src.workers.repo_fetch.flush_to_db")
     mock_files = [
         {"path": "/src/hello.py" ,"language": "python", "content":"hello world"},
         {"path": "/src/server.js" ,"language": "javascript", "content":"hello world"},
@@ -40,7 +42,15 @@ async def test_success_path(mocker, db_session, test_repo, test_job):
     await process_fetch_message("message_id_123", payload)
     # await db_session.refresh(test_repo)
     # await db_session.refresh(test_job)
-    assert test_repo.status == "fetching"
+    mock_init.assert_called_once_with(
+        str(test_job.id),
+        total_files=2
+    )
+    mock_increment_fetch.assert_called_once_with(
+        str(test_job.id),
+        2
+    ) 
+    assert test_repo.status == "processing"
     assert test_job.status == "processing"
     assert test_job.total_files == 2 
     mock_ack.assert_called_once_with(
@@ -48,6 +58,11 @@ async def test_success_path(mocker, db_session, test_repo, test_job):
         "fetch-workers",
         "fetch-worker-1",
         "message_id_123"
+    )
+    mock_flush_to_db.assert_called_once_with(
+        db_session,
+        test_job,
+        test_repo
     )
     assert mock_publish.call_count == 2
     expected_calls = [
