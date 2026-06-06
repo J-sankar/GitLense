@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down application...")
 
 
-app = FastAPI(title="hey-auth", lifespan=lifespan,redirect_slashes=False)
+app = FastAPI(title="hey-ingest", lifespan=lifespan,redirect_slashes=False)
 # app.state.limiter = limiter
 # app.add_exception_handler(RateLimitExceeded,_rate_limit_exceeded_handler)
 app.add_middleware(
