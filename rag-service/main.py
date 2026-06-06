@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down application...")
 
 
-app = FastAPI(title="GitLense API", lifespan=lifespan,redirect_slashes=False)
+app = FastAPI(title="hey-rag", lifespan=lifespan,redirect_slashes=False)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
