@@ -1,109 +1,88 @@
-# GitLense API
+# Codebase QA (GitLense API)
 
-A FastAPI-powered application for analyzing and querying codebases with AI-driven code understanding capabilities. It parses code using tree-sitter, generates embeddings for semantic search, and uses LLMs to answer questions about repositories.
+This repository contains a small microservice-style system for codebase analysis, ingestion, and retrieval-augmented generation (RAG). It uses FastAPI services, background workers, Redis, PostgreSQL, and vector storage to parse repositories, create embeddings, and answer queries over code.
 
-## Features
+**High-level architecture**
 
-- **Code Analysis**: Parse and analyze source code using tree-sitter (supports Python, JavaScript, TypeScript, Java, HTML, C, and Go)
-- **GitHub Integration**: Connect and analyze GitHub repositories
-- **AI-Powered Queries**: Query codebases using semantic search powered by embeddings (VoyageAI or Gemini)
-- **Background Job Processing**: Asynchronous job execution using Redis and RQ
-- **Database Storage**: PostgreSQL backend with SQLAlchemy ORM
-- **Vector Storage**: Qdrant for efficient vector similarity search
-- **LLM Integration**: Groq for generating answers to codebase queries
-- **Code Compression**: zlib-based compression for storing code chunks
+- **API services**: lightweight FastAPI services that expose REST endpoints.
+	- `auth-service/` — authentication service, user and token management.
+	- `ingestion-service/` — repository fetchers, parsers, and ingestion pipelines that create documents and embeddings.
+	- `rag-service/` — RAG endpoint(s) that combine semantic search with LLM reasoning to answer queries.
+- **Workers**: background processing (see `worker.py` and `src/.../workers/`) for ingestion, indexing, and long-running tasks.
+- **Data stores**:
+	- PostgreSQL for relational data (models in each service under `models/`).
+	- Redis for queues and rate-limiting.
+	- Qdrant (or other vector DB) for vector similarity search used by semantic search.
+- **Infrastructure**: `docker-compose.yml` can bring up services locally for development.
 
-## Tech Stack
+Repository layout (top-level)
 
-- **Framework**: FastAPI
-- **Database**: PostgreSQL with SQLAlchemy ORM
-- **Task Queue**: Redis + RQ for background jobs
-- **Code Parsing**: Tree-sitter (multi-language support)
-- **AI/Embeddings**: VoyageAI or Gemini
-- **LLM**: Groq
-- **Vector Database**: Qdrant
-- **GitHub Integration**: PyGithub
-- **Compression**: zlib
+- `auth-service/` — auth microservice (FastAPI, alembic migrations, pyproject)
+- `ingestion-service/` — ingestion microservice (parsers, processors, workers)
+- `rag-service/` — RAG API and helpers
+- `main.py` — lightweight root entry (if present) for a combined run
+- `worker.py` — simple worker runner for local development
+- `docker-compose.yml`, `Dockerfile` — container orchestrations and images
+- `scripts/` — utility scripts such as repository cleanup and seeding
 
-## Prerequisites
+Getting started (developer flow)
 
-- Python >= 3.11
-- PostgreSQL
-- Redis
-- Git
+- Requirements: Python 3.11+, Docker & Docker Compose, PostgreSQL, Redis
+- Recommended: create a Python virtual environment per-service (many services include a `pyproject.toml`).
 
-## Installation
+Quick local run (using the Make tasks present in this repo)
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd GitLense
-```
-
-2. Install dependencies using uv:
-```bash
-uv pip install -r requirements.txt
-```
-
-Or with pip:
-```bash
-pip install -e .
-```
-
-3. Set up environment variables:
-Create a `.env` file in the project root with the following:
-```
-DATABASE_URL=postgresql://user:password@localhost:5432/codebase_qa
-REDIS_URL=redis://localhost:6379
-GITHUB_TOKEN=your-github-token
-VOYAGE_API_KEY=your-voyage-api-key
-GEMINI_API_KEY=your-gemini-api-key
-GROQ_API_KEY=your-groq-api-key
-QDRANT_URL=your-qdrant-url
-QDRANT_API_KEY=your-qdrant-api-key
-EMBEDDING_PROVIDER=voyage  # or 'gemini'
-ENVIRONMENT=development
-```
-
-4. Initialize the database:
-The database tables are created automatically on startup via FastAPI's lifespan event.
-
-## Running the Application
-
-Start the FastAPI development server:
-```bash
-uvicorn main:app --reload
-```
-
-The API will be available at `http://localhost:8000`
-
-### API Documentation
-
-- **Swagger UI**: http://localhost:8000/docs
-
-### Health Check
-- `GET /health` - Check if the API is running
-
-### Background Worker
-To process ingestion jobs, run the worker in a separate terminal:
-```bash
-python worker.py
-```
-
-## Development
-
-### Running Tests
+Run the API server:
 
 ```bash
-pytest test/
+make server
 ```
 
-### Code Quality
+Run background workers (small/medium/large queues):
 
-Ensure code follows project standards and passes all tests before committing.
-
-
+```bash
+make worker-s
+make worker-m
+make worker-l
 ```
+
+Bring up everything with Docker Compose:
+
+```bash
+docker-compose up -d --build
+```
+
+Stop and reset local services:
+
+```bash
+make stop
+make reset-redis
+```
+
+Environment variables
+
+Each service expects configuration via env vars or a `.env` file. Typical variables include `DATABASE_URL`, `REDIS_URL`, provider API keys (e.g. embedding/LLM providers), and service-specific flags. Check each service's `core/config.py` for concrete names.
+
+Testing
+
+- Run service tests from the service folder or at repo root where tests are present:
+
+```bash
+pytest
+```
+
+
+
+Where to look next
+
+- Authentication flows: [auth-service](auth-service)
+- Ingestion & parsing: [ingestion-service](ingestion-service)
+- RAG & retrieval: [rag-service](rag-service)
+- Worker entrypoint: `worker.py`
+- Docker and local orchestration: `docker-compose.yml`
+
+
+
 
 
 
