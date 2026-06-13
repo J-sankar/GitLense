@@ -6,7 +6,7 @@ from sqlalchemy import select
 from src.models.db import Repo,UserRepo,Job
 from src.core.limiter import limiter
 from src.core.logger import get_logger
-from src.core.security import get_current_user
+from src.core.security import get_gateway_user
 from src.schemas.ingest import IngestRequest,IngestResponse  
 from src.utils.github import parse_repo_name
 from src.utils.validators import validate_repo_url
@@ -26,10 +26,10 @@ async def ingest_repo(
     payload:      IngestRequest,
     request: Request,
     db:           AsyncSession = Depends(get_db),
-    # current_user: User    = Depends(get_current_user)
+    user_id:uuid.UUID    = Depends(get_gateway_user)
 ):
     
-    user_id = uuid.UUID("e8daa55f-49c8-495b-8ff1-8c8c88976269")
+    
     repo_url = payload.repo_url
     if not validate_repo_url(repo_url):
         raise HTTPException(400, "Invalid GitHub URL")
@@ -124,6 +124,7 @@ async def stream_job_status(
     job_id: str,
     request: Request,
     db: AsyncSession = Depends(get_db),
+    user_id: uuid.UUID = Depends(get_gateway_user)
 ):
     async def event_generator():
         while True:

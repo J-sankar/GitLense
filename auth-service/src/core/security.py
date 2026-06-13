@@ -90,7 +90,9 @@ async def save_refresh_token(db: AsyncSession, user_id: str, token: str):
     existing_tokens = result.scalars().all()
 
     if len(existing_tokens) >= 2:
-        await db.delete(existing_tokens[0])
+        # remove the oldest token instance from the session
+        db.delete(existing_tokens[0])
+        await db.flush()
 
     db.add(
         RefreshToken(
@@ -99,7 +101,9 @@ async def save_refresh_token(db: AsyncSession, user_id: str, token: str):
             expires_at=datetime.now(timezone.utc) + timedelta(days=7),
         )
     )
-    await  db.flush()
+    await db.flush()
+    # persist the new token so subsequent requests can verify it immediately
+    await db.commit()
 
 
 async def verify_refresh_token(db: AsyncSession, token: str) -> RefreshToken | None:
@@ -239,3 +243,5 @@ def get_current_user_from_query(
     logger.info(f"SSE auth success for user: {user.username}")
 
     return user
+
+
