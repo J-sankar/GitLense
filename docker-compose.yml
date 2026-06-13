@@ -1,92 +1,93 @@
 services:
-  api:
-    build: .
-    image: gitlense:latest
-    working_dir: /app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000
+  api-gateway:
+    image: nginx:alpine
     ports:
-      - "80:8000"
-    env_file:
-      - .env.docker
-    environment:
-      - PYTHONPATH=/app/src
-    restart: always
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
     depends_on:
-      redis:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 512M
+      - auth-service
+      - ingestion-service
+      - rag-service
 
-  migration_runner:
-    image: gitlense:latest
-    working_dir: /app
-    command: alembic upgrade head
-    env_file: .env.docker
-    restart: "no"
-    profiles: ["tools"]
-
-  worker_small:
-    image: gitlense:latest
-    working_dir: /app
-    command: python worker.py small
-    env_file:
-      - .env.docker
-    restart: always
-    depends_on:
-      redis:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-
-  worker_medium:
-    image: gitlense:latest
-    working_dir: /app
-    command: python worker.py medium
-    env_file:
-      - .env.docker
-    restart: always
-    depends_on:
-      redis:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-
-  worker_larger:
-    image: gitlense:latest
-    working_dir: /app
-    command: python worker.py large
-    env_file:
-      - .env.docker
-    restart: always
-    depends_on:
-      redis:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 1.5G
-
+  
   redis:
-    image: redis:7-alpine
-    restart: always
-    command: redis-server --maxmemory 200mb --maxmemory-policy allkeys-lru
+    image: redis:alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "6380:6379"
     volumes:
       - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    deploy:
-      resources:
-        limits:
-          memory: 256M
+
+  
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
+  
+  ingestion-service:
+    build:
+      context: ./ingestion-service
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+
+    depends_on:
+      - redis
+
+    
+  rag-service:
+    build:
+      context: ./rag-service
+      dockerfile: Dockerfile
+
+    env_file:
+      - .env
+
+    depends_on:
+      - redis
+
+  
+  repo-fetch-worker:
+    build:
+      context: ./ingestion-service
+      dockerfile: Dockerfile
+
+    command: python -m src.workers.repo_fetch
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
+  
+  file-process-worker:
+    build:
+      context: ./ingestion-service
+      dockerfile: Dockerfile
+
+    command: python -m src.workers.file_process
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
+  file-store-worker:
+    build:
+      context: ./ingestion-service
+      dockerfile: Dockerfile
+
+    command: python -m src.workers.file_store
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
 
 volumes:
   redis_data:
