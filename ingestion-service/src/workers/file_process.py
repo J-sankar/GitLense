@@ -51,7 +51,11 @@ async def process_files_message(message_id:str, file_payload: dict):
 
 
             logger.info(f"Processing job: {job_id} | repo_id: {repo_id}")
-
+            repo.status = "processing"
+            job.status  = "processing"
+            repo.error_message = ""
+            job.error_message=""
+            await db.commit()
             file_data = await process_file(db,repo,job,payload)
             if file_data is None:
     # file skipped — still counts as processed
