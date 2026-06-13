@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Header
+from fastapi import APIRouter, Depends, HTTPException, Request
 from src.schemas.query import QueryRequest, QueryResponse, SourceChunk
 from src.core.database import get_db, AsyncSession
 from src.core.logger import get_logger
 from src.models.db import Query
+from src.core.security import get_gateway_user
 from src.services.query_service import answer_question
 import uuid
 
@@ -11,12 +12,12 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
-async def get_user_id(x_user_id: str | None = Header(default=None)):
+async def get_user_id(x_user_id ):
     if not x_user_id:
         # Fallback for local testing when the header is missing
-        return str(uuid.UUID("e8daa55f-49c8-495b-8ff1-8c8c88976269"))
+        raise HTTPException(status_code=401, detail="User id is required")
 
-    return x_user_id
+    return str(x_user_id)
 
 
 @router.post("", response_model=QueryResponse)
@@ -24,15 +25,15 @@ async def queryLLM(
     request: Request,
     payload: QueryRequest,
     db: AsyncSession = Depends(get_db),
-    current_user:str = Depends(get_user_id),
+    current_user:uuid.UUID = Depends(get_gateway_user),
 ):
     try:
-        id = uuid.UUID(current_user)
+        
         logger.debug("Reached Query Endpoint")
         answer = await answer_question(repo_id=payload.repo_id, query=payload.query)
         logger.debug(answer)
         new_query = Query(
-            user_id=id, repo_id=payload.repo_id, question=payload.query
+            user_id=current_user, repo_id=payload.repo_id, question=payload.query
         )
 
         new_query.answer = answer["answer"]
