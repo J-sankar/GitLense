@@ -102,7 +102,6 @@ def get_refresh_cookies(request: Request) -> str | None:
 def clear_refresh_cookie(response: Response):
     response.delete_cookie(key=COOKIE_NAME, httponly=True, secure=True, samesite="lax")
 
-
 bearer_scheme = HTTPBearer()
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
