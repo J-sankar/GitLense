@@ -105,7 +105,6 @@ def clear_refresh_cookie(response: Response):
 
 bearer_scheme = HTTPBearer()
 
-
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: AsyncSession = Depends(get_db),
